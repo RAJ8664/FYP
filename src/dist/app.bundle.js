@@ -5720,12 +5720,12 @@ module.exports={
     "5777": {
       "events": {},
       "links": {},
-      "address": "0xdFB3328E1B850A5f6901a9C70F582414529F644f",
-      "transactionHash": "0xd6889bfaaf009e570d90ad4637f60803f0dbb9144dbeee16f673099a0e5f970a"
+      "address": "0xeB0C0b0d7bfcb6AC4C652b6331bEd81F57DF6175",
+      "transactionHash": "0x01dda02cf00627d1faab19fec0c4ad5c6d472d88660695a2be684a33ce0362af"
     }
   },
   "schemaVersion": "3.4.16",
-  "updatedAt": "2025-12-10T12:54:46.656Z",
+  "updatedAt": "2026-02-27T07:15:17.261Z",
   "networkType": "ethereum",
   "devdoc": {
     "methods": {}

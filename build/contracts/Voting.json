@@ -5719,12 +5719,12 @@
     "5777": {
       "events": {},
       "links": {},
-      "address": "0x60a60AD3d841A6Ae7C1F4345B61a1eE4A0Df2A1e",
-      "transactionHash": "0xf307f8fbe90a34ec8937be56447ca7d3170a5bd61b2215a737741be615463559"
+      "address": "0xcaDEBD75B827D405d46259048237e66f608BF960",
+      "transactionHash": "0x9edacf552ae076a175ce8da4ed0189209c92c6c77a6a2d027844f2620ffdbbc4"
     }
   },
   "schemaVersion": "3.4.16",
-  "updatedAt": "2025-12-10T13:11:36.885Z",
+  "updatedAt": "2026-02-27T07:36:09.297Z",
   "networkType": "ethereum",
   "devdoc": {
     "methods": {}
