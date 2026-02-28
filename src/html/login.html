@@ -1,42 +1,92 @@
 <!doctype html>
 <html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<title>Login Page</title>
-		<link rel="stylesheet" type="text/css" href="../css/login.css" />
-	</head>
-	<body>
-		<h1 align="center" style="color: azure">Decentralized Voting Using Ethereum Blockchain</h1>
-		<div class="container mt-5">
-			<h1>Login</h1>
-			<form id="loginForm">
-				<div class="form-group">
-					<label for="voter-id"><h3>Voter ID</h3></label>
-					<input
-						type="text"
-						class="form-control"
-						id="voter-id"
-						name="voter-id"
-						placeholder="Voter id"
-					/>
-				</div>
-				<div class="form-group">
-					<label for="password"><h3>Password</h3></label>
-					<input
-						type="password"
-						class="form-control"
-						id="password"
-						name="password"
-						placeholder="Password"
-					/>
-				</div>
-				<button type="submit" class="btn btn-primary"><b>Login</b></button>
-			</form>
-		</div>
-		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.0/umd/popper.min.js"></script>
-		<script src="../js/login.js" type="module"></script>
-	</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Login Page</title>
+    <link rel="stylesheet" type="text/css" href="../css/login.css" />
+  </head>
+  <body>
+    <h1 align="center" style="color: azure">Decentralized Voting Using Ethereum Blockchain</h1>
+    <div class="container mt-5">
+      <h1>Login</h1>
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="voter-id"><h3>Voter ID</h3></label>
+          <input
+            type="text"
+            class="form-control"
+            id="voter-id"
+            name="voter-id"
+            placeholder="Voter id"
+          />
+        </div>
+        <div class="form-group">
+          <label for="password"><h3>Password</h3></label>
+          <input
+            type="password"
+            class="form-control"
+            id="password"
+            name="password"
+            placeholder="Password"
+          />
+        </div>
+        <button type="submit" class="btn btn-primary"><b>Login</b></button>
+        <button type="button" class="btn btn-secondary mt-2" id="toggleRegister">
+          <b>Register Instead</b>
+        </button>
+      </form>
+
+      <form id="registerForm" style="display: none">
+        <div class="form-group">
+          <label for="reg-email"><h3>Email</h3></label>
+          <input
+            type="email"
+            class="form-control"
+            id="reg-email"
+            name="reg-email"
+            placeholder="Email (e.g. user@nits.ac.in)"
+          />
+        </div>
+        <div class="form-group">
+          <label for="reg-voter-id"><h3>Voter ID</h3></label>
+          <input
+            type="text"
+            class="form-control"
+            id="reg-voter-id"
+            name="reg-voter-id"
+            placeholder="7 digit College ID"
+          />
+        </div>
+        <div class="form-group">
+          <label for="reg-password"><h3>Password</h3></label>
+          <input
+            type="password"
+            class="form-control"
+            id="reg-password"
+            name="reg-password"
+            placeholder="Password"
+          />
+        </div>
+        <div class="form-group">
+          <label for="reg-confirm-password"><h3>Confirm Password</h3></label>
+          <input
+            type="password"
+            class="form-control"
+            id="reg-confirm-password"
+            name="reg-confirm-password"
+            placeholder="Confirm Password"
+          />
+        </div>
+        <button type="submit" class="btn btn-success"><b>Register</b></button>
+        <button type="button" class="btn btn-secondary mt-2" id="toggleLogin">
+          <b>Login Instead</b>
+        </button>
+      </form>
+    </div>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.0/umd/popper.min.js"></script>
+    <script src="../js/login.js" type="module"></script>
+  </body>
 </html>

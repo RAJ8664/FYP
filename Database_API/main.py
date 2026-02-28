@@ -45,7 +45,7 @@ except mysql.connector.Error as err:
         print(err)
 
 
-# Define the authentication middleware
+# Define the auth middleware
 async def authenticate(request: Request):
     try:
         api_key = request.headers.get("authorization").replace("Bearer ", "")
@@ -60,7 +60,40 @@ async def authenticate(request: Request):
         )
 
 
-# Define the POST endpoint for login
+from pydantic import BaseModel
+
+class RegisterRequest(BaseModel):
+    voter_id: str
+    password: str
+    email: str
+
+@app.post("/register")
+async def register(request: RegisterRequest):
+    try:
+        # Check if voter_id already exists
+        cursor.execute("SELECT voter_id FROM voters WHERE voter_id = %s", (request.voter_id,))
+        if cursor.fetchone():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="user already registered pls login",
+            )
+        
+        # Insert new user with default role 'user'
+        cursor.execute(
+            "INSERT INTO voters (voter_id, password, role) VALUES (%s, %s, %s)",
+            (request.voter_id, request.password, "user")
+        )
+        cnx.commit()
+        
+        return {"message": "User registered successfully"}
+    except mysql.connector.Error as err:
+        print(err)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Database error"
+        )
+
+
+# Define the GET endpoint for login
 @app.get("/login")
 async def login(request: Request, voter_id: str, password: str):
     await authenticate(request)

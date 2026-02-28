@@ -6561,12 +6561,12 @@ module.exports={
     "5777": {
       "events": {},
       "links": {},
-      "address": "0xC41072856EC77D0cbdb1837Ba05E60b546dB3e70",
-      "transactionHash": "0x1fcfdc5909a7419af3d7958aebef84dcd13cb968252eebdf86457d33e61daa29"
+      "address": "0xbE47eCd708A9B0993aB7ACbe5821859D6D0e7D4f",
+      "transactionHash": "0x4f6477f9dd9467b8b12a2c5b0f01bcc9f0b028d2914c1f43196185e7753bd097"
     }
   },
   "schemaVersion": "3.4.16",
-  "updatedAt": "2026-02-28T05:42:56.620Z",
+  "updatedAt": "2026-02-28T07:05:24.777Z",
   "networkType": "ethereum",
   "devdoc": {
     "methods": {}
