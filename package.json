@@ -1,10 +1,15 @@
 {
 	"name": "decentralized-voting",
 	"version": "1.0.0",
-	"description": "",
+	"description": "Decentralized Voting System using Ethereum Blockchain",
 	"main": "index.js",
 	"scripts": {
-		"test": "echo \"Error: no test specified\" && exit 1"
+		"hardhat-node": "npx hardhat node",
+		"compile": "npx hardhat compile",
+		"deploy": "npx hardhat run scripts/deploy.js --network localhost",
+		"bundle": "npx browserify src/js/app.js -o src/dist/app.bundle.js",
+		"server": "node index.js",
+		"start": "bash start.sh"
 	},
 	"author": "",
 	"license": "ISC",
@@ -16,5 +21,10 @@
 		"express": "^4.18.2",
 		"jsonwebtoken": "^9.0.0",
 		"web3": "^1.9.0"
+	},
+	"devDependencies": {
+		"@nomiclabs/hardhat-ethers": "^2.2.3",
+		"ethers": "^5.7.2",
+		"hardhat": "^2.22.0"
 	}
 }
