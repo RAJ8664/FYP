@@ -10,6 +10,7 @@ contract Voting {
 
     mapping(uint256 => Candidate) public candidates;
     mapping(address => bool) public voters;
+    mapping(bytes32 => bool) public candidateExists;
 
     uint256 public countCandidates;
     uint256 public votingEnd;
@@ -19,8 +20,13 @@ contract Voting {
         public
         returns (uint256)
     {
+        bytes32 candidateHash = keccak256(abi.encodePacked(name, party));
+        require(!candidateExists[candidateHash], "Candidate already exists");
+
         countCandidates++;
         candidates[countCandidates] = Candidate(countCandidates, name, party, 0);
+        candidateExists[candidateHash] = true;
+
         return countCandidates;
     }
 
