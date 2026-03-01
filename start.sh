@@ -27,6 +27,8 @@ echo -e "${CYAN}  Decentralized Voting System Launcher  ${NC}"
 echo -e "${CYAN}========================================${NC}"
 
 # ---- Cleanup function ----
+START_TIME=$(date +%s)
+
 cleanup() {
     echo -e "\n${YELLOW}Shutting down all services...${NC}"
     # Kill background processes
@@ -44,7 +46,12 @@ cleanup() {
 
 trap cleanup SIGINT SIGTERM
 
+END_TIME=$(date +%s)
+DURATION=$((END_TIME - START_TIME))
+echo -e "  ${YELLOW}⏱ Cleanup Took ${DURATION} seconds${GREEN}"
+
 # ---- Kill any existing processes on required ports ----
+START_TIME=$(date +%s)
 echo -e "\n${YELLOW}[Step 0] Cleaning up existing processes...${NC}"
 for port in 8545 8000 8080; do
     pid=$(lsof -ti:$port 2>/dev/null || true)
@@ -55,7 +62,12 @@ for port in 8545 8000 8080; do
     fi
 done
 
+END_TIME=$(date +%s)
+DURATION=$((END_TIME - START_TIME))
+echo -e "  ${YELLOW}⏱ Kill Ports Took ${DURATION} seconds${GREEN}"
+
 # ---- Step 1: Start Hardhat Node ----
+START_TIME=$(date +%s)
 echo -e "\n${GREEN}[Step 1] Starting Hardhat node...${NC}"
 export HARDHAT_DISABLE_TELEMETRY_PROMPT=true
 npx hardhat node &
@@ -66,7 +78,7 @@ echo -e "  Hardhat node PID: $HARDHAT_PID"
 echo -e "  Waiting for Hardhat node to be ready..."
 for i in $(seq 1 30); do
     if curl -s http://127.0.0.1:8545 -X POST -H "Content-Type: application/json" \
-        --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' > /dev/null 2>&1; then
+        --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' >/dev/null 2>&1; then
         echo -e "  ${GREEN}Hardhat node is ready!${NC}"
         break
     fi
@@ -77,18 +89,32 @@ for i in $(seq 1 30); do
     sleep 1
 done
 
+END_TIME=$(date +%s)
+DURATION=$((END_TIME - START_TIME))
+echo -e "  ${YELLOW}⏱ Hardhat Node Setup Took ${DURATION} seconds${GREEN}"
+
 # ---- Step 2: Compile & Deploy Smart Contract ----
+START_TIME=$(date +%s)
 echo -e "\n${GREEN}[Step 2] Compiling and deploying smart contract...${NC}"
 npx hardhat compile
 npx hardhat run scripts/deploy.js --network localhost
 echo -e "  ${GREEN}Contract deployed successfully!${NC}"
 
+END_TIME=$(date +%s)
+DURATION=$((END_TIME - START_TIME))
+echo -e "  ${YELLOW}⏱ Smart Contract Deployment Took ${DURATION} seconds${GREEN}"
+
 # ---- Step 3: Bundle Frontend JS ----
+START_TIME=$(date +%s)
 echo -e "\n${GREEN}[Step 3] Bundling frontend JavaScript...${NC}"
 npx browserify src/js/app.js -o src/dist/app.bundle.js
 echo -e "  ${GREEN}Bundle created at src/dist/app.bundle.js${NC}"
+END_TIME=$(date +%s)
+DURATION=$((END_TIME - START_TIME))
+echo -e "  ${YELLOW}⏱ Bundle Frontend JS Took ${DURATION} seconds${GREEN}"
 
 # ---- Step 4: Start FastAPI Server ----
+START_TIME=$(date +%s)
 echo -e "\n${GREEN}[Step 4] Starting FastAPI authentication server...${NC}"
 cd "$PROJECT_DIR/Database_API"
 
@@ -110,7 +136,7 @@ cd "$PROJECT_DIR"
 # Wait for FastAPI to be ready
 echo -e "  Waiting for FastAPI server to be ready..."
 for i in $(seq 1 15); do
-    if curl -s http://127.0.0.1:8000/docs > /dev/null 2>&1; then
+    if curl -s http://127.0.0.1:8000/docs >/dev/null 2>&1; then
         echo -e "  ${GREEN}FastAPI server is ready!${NC}"
         break
     fi
@@ -120,11 +146,21 @@ for i in $(seq 1 15); do
     sleep 1
 done
 
+END_TIME=$(date +%s)
+DURATION=$((END_TIME - START_TIME))
+echo -e "  ${YELLOW}⏱ FastAPI Server Setup Took ${DURATION} seconds${GREEN}"
+
 # ---- Step 5: Start Express Server ----
+START_TIME=$(date +%s)
 echo -e "\n${GREEN}[Step 5] Starting Express web server...${NC}"
 node index.js &
 EXPRESS_PID=$!
 echo -e "  Express server PID: $EXPRESS_PID"
+
+END_TIME=$(date +%s)
+DURATION=$((END_TIME - START_TIME))
+echo -e "  ${YELLOW}⏱ Express Server Setup Took ${DURATION} seconds${GREEN}"
+
 sleep 2
 
 # ---- Done! ----
