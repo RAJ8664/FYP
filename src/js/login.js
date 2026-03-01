@@ -34,16 +34,18 @@ loginForm.addEventListener('submit', (event) => {
       }
     })
     .then((data) => {
+      localStorage.setItem('voter_id', voter_id)
+
       if (data.role === 'admin') {
         console.log(data.role)
         localStorage.setItem('jwtTokenAdmin', data.token)
         window.location.replace(
-          `http://127.0.0.1:8080/admin.html?Authorization=Bearer ${localStorage.getItem('jwtTokenAdmin')}`,
+          `/admin.html?Authorization=Bearer ${localStorage.getItem('jwtTokenAdmin')}`,
         )
       } else if (data.role === 'user') {
         localStorage.setItem('jwtTokenVoter', data.token)
         window.location.replace(
-          `http://127.0.0.1:8080/index.html?Authorization=Bearer ${localStorage.getItem('jwtTokenVoter')}`,
+          `/index.html?Authorization=Bearer ${localStorage.getItem('jwtTokenVoter')}`,
         )
       }
     })

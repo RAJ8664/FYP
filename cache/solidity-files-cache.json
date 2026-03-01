@@ -1,0 +1,40 @@
+{
+  "_format": "hh-sol-cache-2",
+  "files": {
+    "/home/rkroy/Desktop/code/FYP/contracts/Voting.sol": {
+      "lastModificationDate": 1772268804753,
+      "contentHash": "db1f1b05cb2d0604d2881a96b8cd0782",
+      "sourceName": "contracts/Voting.sol",
+      "solcConfig": {
+        "version": "0.5.15",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.5.15"
+      ],
+      "artifacts": [
+        "Voting"
+      ]
+    }
+  }
+}
