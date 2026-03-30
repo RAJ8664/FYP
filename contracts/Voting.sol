@@ -1,6 +1,8 @@
 pragma solidity ^0.5.15;
 
 contract Voting {
+    address public owner;
+
     struct Candidate {
         uint256 id;
         string name;
@@ -16,8 +18,18 @@ contract Voting {
     uint256 public votingEnd;
     uint256 public votingStart;
 
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Not owner");
+        _;
+    }
+
+    constructor() public {
+        owner = msg.sender;
+    }
+
     function addCandidate(string memory name, string memory party)
         public
+        onlyOwner
         returns (uint256)
     {
         bytes32 candidateHash = keccak256(abi.encodePacked(name, party));
@@ -68,7 +80,7 @@ contract Voting {
         );
     }
 
-    function setDates(uint256 _startDate, uint256 _endDate) public {
+    function setDates(uint256 _startDate, uint256 _endDate) public onlyOwner {
         require(
             (votingEnd == 0) && (votingStart == 0)
                 && (_startDate + 1000000 > now) && (_endDate > _startDate)

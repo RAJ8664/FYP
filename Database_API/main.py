@@ -1,24 +1,24 @@
-import dotenv
 import os
-import mysql.connector
-from fastapi import FastAPI, HTTPException, status, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.encoders import jsonable_encoder
-from mysql.connector import errorcode
-import jwt
+import time
 
-# Loading the environment variables
+import bcrypt
+import dotenv
+import jwt
+import mysql.connector
+from fastapi import FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
+from mysql.connector import errorcode
+from pydantic import BaseModel
+
 dotenv.load_dotenv()
 
 app = FastAPI()
 
-# Define the allowed origins for CORS, You Can Add Multiple Origins Here
 origins = [
     "http://localhost:8080",
     "http://127.0.0.1:8080",
 ]
 
-# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -27,7 +27,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Connect to the MySQL database (Make sure it is up & running)
 try:
     cnx = mysql.connector.connect(
         user=os.environ["MYSQL_USER"],
@@ -44,48 +43,69 @@ except mysql.connector.Error as err:
     else:
         print(err)
 
+LOGIN_FAILED = HTTPException(
+    status_code=status.HTTP_401_UNAUTHORIZED,
+    detail="Invalid voter id or password",
+)
 
-# Define the auth middleware
-async def authenticate(request: Request):
-    try:
-        api_key = request.headers.get("authorization").replace("Bearer ", "")
-        cursor.execute("SELECT * FROM voters WHERE voter_id = %s", (api_key,))
-        if api_key not in [row[0] for row in cursor.fetchall()]:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Forbidden"
-            )
-    except:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Forbidden"
+
+def _hash_password(plain: str) -> str:
+    return bcrypt.hashpw(plain.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def _verify_and_maybe_upgrade_password(
+    voter_id: str, plain: str, stored: str
+) -> bool:
+    """Return True if password matches. Upgrades legacy plaintext rows to bcrypt."""
+    if stored.startswith("$2"):
+        try:
+            return bcrypt.checkpw(plain.encode("utf-8"), stored.encode("utf-8"))
+        except ValueError:
+            return False
+    if stored == plain:
+        new_hash = _hash_password(plain)
+        cursor.execute(
+            "UPDATE voters SET password = %s WHERE voter_id = %s",
+            (new_hash, voter_id),
         )
+        cnx.commit()
+        return True
+    return False
 
-
-from pydantic import BaseModel
 
 class RegisterRequest(BaseModel):
     voter_id: str
     password: str
     email: str
 
+
+class LoginRequest(BaseModel):
+    voter_id: str
+    password: str
+
+
 @app.post("/register")
 async def register(request: RegisterRequest):
     try:
-        # Check if voter_id already exists
-        cursor.execute("SELECT voter_id FROM voters WHERE voter_id = %s", (request.voter_id,))
+        cursor.execute(
+            "SELECT voter_id FROM voters WHERE voter_id = %s", (request.voter_id,)
+        )
         if cursor.fetchone():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="user already registered pls login",
             )
-        
-        # Insert new user with default role 'user'
+
+        password_hash = _hash_password(request.password)
         cursor.execute(
             "INSERT INTO voters (voter_id, password, role) VALUES (%s, %s, %s)",
-            (request.voter_id, request.password, "user")
+            (request.voter_id, password_hash, "user"),
         )
         cnx.commit()
-        
+
         return {"message": "User registered successfully"}
+    except HTTPException:
+        raise
     except mysql.connector.Error as err:
         print(err)
         raise HTTPException(
@@ -93,45 +113,43 @@ async def register(request: RegisterRequest):
         )
 
 
-# Define the GET endpoint for login
-@app.get("/login")
-async def login(request: Request, voter_id: str, password: str):
-    await authenticate(request)
-    role = await get_role(voter_id, password)
-
-    # Assuming authentication is successful, then generate a token
-    token = jwt.encode(
-        {"password": password, "voter_id": voter_id, "role": role},
-        os.environ["SECRET_KEY"],
-        algorithm="HS256",
-    )
-
-    return {"token": token, "role": role}
-
-
-# Replace 'admin' with the actual role based on authentication
-async def get_role(voter_id, password):
+@app.post("/login")
+async def login(request: LoginRequest):
     try:
         cursor.execute(
-            "SELECT role FROM voters WHERE voter_id = %s AND password = %s",
-            (
-                voter_id,
-                password,
-            ),
+            "SELECT password, role FROM voters WHERE voter_id = %s",
+            (request.voter_id,),
         )
-        role = cursor.fetchone()
-        if role:
-            return role[0]
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid voter id or password",
-            )
+        row = cursor.fetchone()
+        if not row:
+            raise LOGIN_FAILED
+
+        stored_password, role = row
+        if not _verify_and_maybe_upgrade_password(
+            request.voter_id, request.password, stored_password
+        ):
+            raise LOGIN_FAILED
+
+        now = int(time.time())
+        payload = {
+            "sub": request.voter_id,
+            "role": role,
+            "iat": now,
+            "exp": now + 86400,
+        }
+        token = jwt.encode(
+            payload,
+            os.environ["SECRET_KEY"],
+            algorithm="HS256",
+        )
+        if isinstance(token, bytes):
+            token = token.decode("utf-8")
+
+        return {"token": token, "role": role}
+    except HTTPException:
+        raise
     except mysql.connector.Error as err:
         print(err)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Database error"
         )
-
-
-# Note : Make sure admin and voters are defined in the database
