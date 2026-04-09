@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "/home/rkroy/Desktop/code/FYP/contracts/Voting.sol": {
-      "lastModificationDate": 1772268804753,
-      "contentHash": "db1f1b05cb2d0604d2881a96b8cd0782",
+      "lastModificationDate": 1775726622250,
+      "contentHash": "a42ce22398c76eb4b3af0feb2dfbdd53",
       "sourceName": "contracts/Voting.sol",
       "solcConfig": {
         "version": "0.5.15",
