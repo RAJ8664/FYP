@@ -126,7 +126,7 @@ fi
 
 # Activate venv and install deps
 source fastapi-env/bin/activate
-pip install fastapi uvicorn mysql-connector-python python-dotenv PyJWT pydantic --quiet
+pip install -r requirements.txt --quiet
 
 uvicorn main:app --host 127.0.0.1 --port 8000 &
 FASTAPI_PID=$!

@@ -3,6 +3,8 @@ const registerForm = document.getElementById('registerForm')
 const toggleRegisterBtn = document.getElementById('toggleRegister')
 const toggleLoginBtn = document.getElementById('toggleLogin')
 
+const API_BASE = 'http://127.0.0.1:8000'
+
 toggleRegisterBtn.addEventListener('click', () => {
   loginForm.style.display = 'none'
   registerForm.style.display = 'block'
@@ -13,45 +15,52 @@ toggleLoginBtn.addEventListener('click', () => {
   loginForm.style.display = 'block'
 })
 
+function establishSession(token) {
+  return fetch('/api/session', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token }),
+  })
+}
+
 loginForm.addEventListener('submit', (event) => {
   event.preventDefault()
 
   const voter_id = document.getElementById('voter-id').value
   const password = document.getElementById('password').value
-  const token = voter_id
 
-  const headers = {
-    method: 'GET',
-    Authorization: `Bearer ${token}`,
-  }
-
-  fetch(`http://127.0.0.1:8000/login?voter_id=${voter_id}&password=${password}`, { headers })
+  fetch(`${API_BASE}/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ voter_id, password }),
+  })
     .then((response) => {
       if (response.ok) {
         return response.json()
-      } else {
-        throw new Error('Login failed')
       }
+      throw new Error('Login failed')
     })
     .then((data) => {
-      localStorage.setItem('voter_id', voter_id)
+      return establishSession(data.token).then((sessionRes) => {
+        if (!sessionRes.ok) {
+          throw new Error('Session failed')
+        }
+        localStorage.removeItem('jwtTokenAdmin')
+        localStorage.removeItem('jwtTokenVoter')
+        localStorage.setItem('voter_id', voter_id)
 
-      if (data.role === 'admin') {
-        console.log(data.role)
-        localStorage.setItem('jwtTokenAdmin', data.token)
-        window.location.replace(
-          `/admin.html?Authorization=Bearer ${localStorage.getItem('jwtTokenAdmin')}`,
-        )
-      } else if (data.role === 'user') {
-        localStorage.setItem('jwtTokenVoter', data.token)
-        window.location.replace(
-          `/index.html?Authorization=Bearer ${localStorage.getItem('jwtTokenVoter')}`,
-        )
-      }
+        if (data.role === 'admin') {
+          window.location.replace('/admin.html')
+        } else if (data.role === 'user') {
+          window.location.replace('/index.html')
+        } else {
+          throw new Error('Unknown role')
+        }
+      })
     })
-    .catch((error) => {
-      console.error('Login failed:', error.message)
-      alert('Login failed: Invalid voter id or password')
+    .catch(() => {
+      alert('Invalid voter id or password')
     })
 })
 
@@ -63,7 +72,6 @@ registerForm.addEventListener('submit', (event) => {
   const password = document.getElementById('reg-password').value
   const confirmPassword = document.getElementById('reg-confirm-password').value
 
-  // Validations
   if (!email.endsWith('.nits.ac.in')) {
     alert('Email must end with .nits.ac.in')
     return
@@ -85,7 +93,7 @@ registerForm.addEventListener('submit', (event) => {
     password: password,
   }
 
-  fetch('http://127.0.0.1:8000/register', {
+  fetch(`${API_BASE}/register`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -100,7 +108,7 @@ registerForm.addEventListener('submit', (event) => {
         registerForm.reset()
       } else if (response.status === 400) {
         const data = await response.json()
-        alert(data.detail) // "user already registered pls login"
+        alert(data.detail)
       } else {
         throw new Error('Registration failed')
       }
