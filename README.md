@@ -1,225 +1,95 @@
-<div align="center">
-
 # 🗳️ Decentralized Voting System
 
-A modern, blockchain-based voting system built on Ethereum. This application leverages smart contracts to ensure transparent, secure, and tamper-proof voting with full auditability.
+Blockchain-based campus election system with:
+- **Smart contract backend** (`contracts/Voting.sol`, Hardhat)
+- **Authentication backend** (`Database_API`, FastAPI + MySQL + JWT)
+- **Frontend** (`client`, React + Vite + ethers)
+- **Gateway server** (`index.js`, Express)
 
-[![Node.js](https://img.shields.io/badge/Node.js-v14+-green.svg)](https://nodejs.org/)
-[![Solidity](https://img.shields.io/badge/Solidity-0.5.15-ff69b4.svg)](https://soliditylang.org/)
-[![Hardhat](https://img.shields.io/badge/Hardhat-v2.22.0-yellow.svg)](https://hardhat.org/)
+The project is now organized so `client/` is the primary frontend, and Express serves the built frontend while proxying auth requests to FastAPI.
 
-</div>
+## Project Structure
 
-## ✨ Features
-
-- **🔐 Secure Voting**: Blockchain-based voting ensures immutability and transparency
-- **🚫 Prevent Double Voting**: Built-in mechanisms to prevent voters from voting multiple times
-- **📊 Real-time Results**: Instant vote counting and candidate ranking
-- **🔑 JWT Authentication**: Secure user authentication and authorization
-- **👥 Multi-role Support**: Admin and voter roles with different permissions
-- **📱 Responsive UI**: Modern, user-friendly interface
-- **🌐 Decentralized**: Run on your own node or test networks (Ganache, Hardhat)
-- **⚡ Gas Optimized**: Efficient smart contract implementation
-
-## 🛠️ Tech Stack
-
-### Frontend
-
-- **HTML5 / CSS3** - Modern responsive design
-- **JavaScript (Vanilla)** - Client-side logic
-- **Web3.js** - Ethereum blockchain interaction
-
-### Backend
-
-- **Node.js** - Runtime environment
-- **Express.js** - REST API framework
-- **JWT** - Authentication and authorization
-
-### Blockchain
-
-- **Solidity 0.5.15** - Smart contract language
-- **Ethereum** - Blockchain network
-- **Hardhat** - Development and testing framework
-
-### Dependencies
-
-- `web3` - Ethereum JavaScript API
-- `@truffle/contract` - Contract abstraction
-- `ethers` - Ethereum library
-- `jsonwebtoken` - JWT implementation
-- `express` - Web framework
-- `dotenv` - Environment variable management
-
-## 📁 Project Structure
-
-```
+```text
 FYP/
-├── contracts/
-│   └── Voting.sol              # Main voting smart contract
-├── scripts/
-│   └── deploy.js               # Deployment script
-├── src/
-│   ├── js/
-│   │   ├── app.js              # Frontend voting application
-│   │   └── login.js            # Login logic
-│   ├── html/
-│   │   ├── index.html          # Voting page
-│   │   ├── login.html          # Login page
-│   │   └── admin.html          # Admin dashboard
-│   ├── css/
-│   │   ├── index.css           # Voting page styles
-│   │   ├── login.css           # Login page styles
-│   │   └── admin.css           # Admin page styles
-│   ├── assets/                 # Images and static files
-│   └── dist/                   # Bundled JavaScript files
-├── Database_API/               # Database API endpoints
-├── artifacts/                  # Compiled contracts
-├── public/                     # Public assets
-├── hardhat.config.js           # Hardhat configuration
-├── index.js                    # Express server entry point
-├── package.json                # Project dependencies
-├── start.sh                    # Quick start script
-└── README.md                   # This file
+├── client/                    # React frontend (Vite)
+├── contracts/                 # Solidity contracts
+├── scripts/deploy.js          # Hardhat deployment script
+├── build/contracts/Voting.json# Frontend-consumable deployed contract artifact
+├── Database_API/              # FastAPI auth service (MySQL-backed)
+├── index.js                   # Express gateway (frontend + API proxy)
+├── start.sh                   # Single-command local launcher
+├── hardhat.config.js
+└── package.json
 ```
 
-## 📦 Prerequisites
+## Prerequisites
 
-Before you begin, ensure you have the following installed:
+- Node.js + npm
+- Python 3
+- MySQL (for `Database_API`)
 
-- **Node.js** (v14 or higher) - [Download](https://nodejs.org/)
-- **npm** (comes with Node.js)
+Create a root `.env` file (you can copy from `.env.example`):
 
-## 🚀 Installation
+```env
+SECRET_KEY=your_jwt_secret
+NODE_ENV=development
 
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/yourusername/decentralized-voting.git
-cd FYP
+MYSQL_USER=...
+MYSQL_PASSWORD=...
+MYSQL_HOST=...
+MYSQL_DB=...
 ```
 
-### 2. Install Dependencies
+## Install
 
 ```bash
 npm install
+npm --prefix client install
 ```
 
-### 3. Set Up Environment Variables
-
-Create a `.env` file in the root directory:
-
-```env
-SECRET_KEY=your_jwt_secret_key_here
-NODE_ENV=development
-```
-
-## ⚙️ Configuration
-
-### Hardhat Configuration
-
-The project uses Hardhat for smart contract development. Configuration is defined in `hardhat.config.js`:
-
-```javascript
-module.exports = {
-  solidity: '0.5.15',
-  networks: {
-    localhost: {
-      url: 'http://127.0.0.1:8545',
-    },
-  },
-  paths: {
-    sources: './contracts',
-    artifacts: './artifacts',
-  },
-}
-```
-
-### Network Setup
-
-The project supports local development using Hardhat's built-in network or Ganache.
-
-## 📖 Usage
+## Run Everything (single command)
 
 ```bash
-chmod +x start.sh
-./start.sh
+npm start
 ```
 
-This script automates the startup process.
+This runs:
+1. Hardhat node (`8545`)
+2. Contract compile + deploy (updates `build/contracts/Voting.json`)
+3. Frontend build (`client/dist`)
+4. FastAPI auth server (`8000`)
+5. Express gateway serving frontend (`8080`)
 
-## 🎬 Demo Videos
+Open: `http://localhost:8080`
 
-### Previous Implementation Demo (Ganache + Metamask)
+## Development
 
-This demo showcases the voting system using Ganache for local blockchain development and Metamask for wallet management.
+Run only frontend dev server:
 
-https://github.com/user-attachments/assets/8176abd9-a3c2-4e95-9a01-4e6229e4c5e0
-
-**Key Features Demonstrated:**
-
-- User login and authentication
-- Viewing candidates
-- Casting votes securely
-- Real-time vote updates
-
-### New Implementation Demo (Hardhat)
-
-This demo shows the automated deployment and testing using Hardhat framework.
-
-https://github.com/user-attachments/assets/8e1b04cc-2968-4c28-adf8-77ce8069b5fe
-
-**Key Features Demonstrated:**
-
-- Automated contract deployment
-- Smart contract testing
-- Admin functionality
-- System automation workflows
-
----
-
-## 🔗 Smart Contract
-
-### Voting.sol
-
-The core smart contract that manages the voting process.
-
-#### Key Functions
-
-- **`addCandidate(string name, string party)`** - Add a new candidate
-- **`vote(uint256 candidateID, string voter_id)`** - Cast a vote for a candidate
-- **`checkVote(string voter_id)`** - Check if a voter has already voted
-- **`getCandidates()`** - Retrieve all candidates and their vote counts
-
-#### Key Features
-
-- Duplicate candidate prevention
-- Double-voting prevention
-- Voting period enforcement
-- Vote anonymity (voter_id is hashed)
-
----
-
-## 🌐 API Documentation
-
-### Authentication
-
-All protected endpoints require a JWT token in the Authorization header:
-
-```
-Authorization: Bearer <token>
+```bash
+npm run client:dev
 ```
 
-### Endpoints
+Run gateway only:
 
-| Method | Endpoint         | Description        | Auth Required |
-| ------ | ---------------- | ------------------ | ------------- |
-| GET    | `/`              | Login page         | ❌            |
-| GET    | `/index.html`    | Voting page        | ✅            |
-| GET    | `/admin.html`    | Admin dashboard    | ✅            |
-| GET    | `/js/app.js`     | Frontend app logic | ❌            |
-| GET    | `/css/index.css` | Main styles        | ❌            |
-| GET    | `/css/admin.css` | Admin styles       | ❌            |
+```bash
+npm run server
+```
 
-### Database API
+## Build / Deployment
 
-The `Database_API/` directory contains additional API endpoints for managing voting data and admin functions.
+Build full app artifact for deployment:
+
+```bash
+npm run build
+```
+
+This compiles contracts and builds `client/dist`.  
+If you also want to deploy contract artifacts for local chain usage, run:
+
+```bash
+npm run chain:prepare
+```
+
+For production deployments, run FastAPI separately, set `AUTH_API_URL` for Express if needed, and serve via `npm run server`.
