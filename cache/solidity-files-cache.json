@@ -35,6 +35,41 @@
       "artifacts": [
         "Voting"
       ]
+    },
+    "/home/rkroy/Desktop/code/FYP/contracts/Voting.sol": {
+      "lastModificationDate": 1776439970463,
+      "contentHash": "a42ce22398c76eb4b3af0feb2dfbdd53",
+      "sourceName": "contracts/Voting.sol",
+      "solcConfig": {
+        "version": "0.5.15",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.5.15"
+      ],
+      "artifacts": [
+        "Voting"
+      ]
     }
   }
 }

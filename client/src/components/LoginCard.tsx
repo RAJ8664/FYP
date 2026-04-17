@@ -81,13 +81,15 @@ export function LoginCard({ expectedRole, title }: LoginCardProps) {
         >
           Login
         </button>
-        <button
-          type="button"
-          className={`flex-1 rounded-md py-2 text-sm font-medium transition ${mode === 'register' ? 'bg-white text-slate-900 shadow' : 'text-slate-600'}`}
-          onClick={() => setMode('register')}
-        >
-          Register
-        </button>
+        {expectedRole == 'user' && (
+          <button
+            type="button"
+            className={`flex-1 rounded-md py-2 text-sm font-medium transition ${mode === 'register' ? 'bg-white text-slate-900 shadow' : 'text-slate-600'}`}
+            onClick={() => setMode('register')}
+          >
+            Register
+          </button>
+        )}
       </div>
       {error ? (
         <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
