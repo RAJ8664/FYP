@@ -2,54 +2,21 @@ const express = require('express')
 const path = require('path')
 const jwt = require('jsonwebtoken')
 const cookieParser = require('cookie-parser')
+const fs = require('node:fs')
 
 require('dotenv').config()
 
 const app = express()
 const COOKIE_NAME = 'auth_token'
+const AUTH_API_URL = process.env.AUTH_API_URL || 'http://127.0.0.1:8000'
+const PORT = Number(process.env.PORT || 8080)
 
 app.use(express.json())
 app.use(cookieParser())
 
-function getTokenFromRequest(req) {
-  if (req.cookies && req.cookies[COOKIE_NAME]) {
-    return req.cookies[COOKIE_NAME]
-  }
-  const authHeader = req.headers.authorization
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    return authHeader.slice('Bearer '.length).trim()
-  }
-  const legacyQuery = req.query.Authorization?.split('Bearer ')[1]
-  if (legacyQuery) {
-    return legacyQuery
-  }
-  return null
-}
-
-const authorizeUser = (req, res, next) => {
-  const token = getTokenFromRequest(req)
-  if (!token) {
-    return res.status(401).send('<h1 align="center"> Login to Continue </h1>')
-  }
-  try {
-    const decodedToken = jwt.verify(token, process.env.SECRET_KEY, {
-      algorithms: ['HS256'],
-    })
-    req.user = decodedToken
-    next()
-  } catch (error) {
-    return res.status(401).send('<h1 align="center"> Login to Continue </h1>')
-  }
-}
-
-const requireAdmin = (req, res, next) => {
-  if (req.user.role !== 'admin') {
-    return res
-      .status(403)
-      .send('<h1 align="center"> Forbidden: admin only </h1>')
-  }
-  next()
-}
+app.get('/healthz', (_req, res) => {
+  res.json({ ok: true })
+})
 
 app.post('/api/session', (req, res) => {
   const token = req.body?.token
@@ -61,10 +28,9 @@ app.post('/api/session', (req, res) => {
   } catch {
     return res.status(401).json({ message: 'Invalid token' })
   }
-  const secure = process.env.NODE_ENV === 'production'
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
-    secure: secure,
+    secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
     maxAge: 86400000,
@@ -77,54 +43,50 @@ app.post('/api/logout', (req, res) => {
   res.json({ ok: true })
 })
 
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'src/html/login.html'))
+app.use('/api-auth', async (req, res) => {
+  const targetPath = req.originalUrl.replace(/^\/api-auth/, '')
+  const url = `${AUTH_API_URL}${targetPath}`
+  const headers = {}
+  const contentType = req.headers['content-type']
+  const authorization = req.headers.authorization
+  if (contentType) headers['Content-Type'] = contentType
+  if (authorization) headers.Authorization = authorization
+
+  try {
+    const hasBody = req.method !== 'GET' && req.method !== 'HEAD'
+    const upstreamRes = await fetch(url, {
+      method: req.method,
+      headers,
+      body: hasBody ? JSON.stringify(req.body ?? {}) : undefined,
+    })
+
+    const bodyText = await upstreamRes.text()
+    const upstreamType = upstreamRes.headers.get('content-type')
+    if (upstreamType) res.setHeader('Content-Type', upstreamType)
+    res.status(upstreamRes.status).send(bodyText)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'FastAPI request failed'
+    res.status(502).json({
+      detail: `Auth service unavailable at ${AUTH_API_URL}${targetPath}: ${message}`,
+    })
+  }
 })
 
-app.get('/js/login.js', (req, res) => {
-  res.sendFile(path.join(__dirname, 'src/js/login.js'))
-})
+const clientDistDir = path.join(__dirname, 'client', 'dist')
+const clientIndexPath = path.join(clientDistDir, 'index.html')
+const hasClientBuild = fs.existsSync(clientIndexPath)
 
-app.get('/css/login.css', (req, res) => {
-  res.sendFile(path.join(__dirname, 'src/css/login.css'))
-})
+if (hasClientBuild) {
+  app.use(express.static(clientDistDir))
+  app.get(/^(?!\/api(?:-auth)?\/).*/, (_req, res) => {
+    res.sendFile(clientIndexPath)
+  })
+} else {
+  app.get('/', (_req, res) => {
+    res.status(503).send('Frontend is not built yet. Run `npm --prefix client run build`.')
+  })
+}
 
-app.get('/css/index.css', (req, res) => {
-  res.sendFile(path.join(__dirname, 'src/css/index.css'))
-})
-
-app.get('/css/admin.css', (req, res) => {
-  res.sendFile(path.join(__dirname, 'src/css/admin.css'))
-})
-
-app.get('/assets/background.jpg', (req, res) => {
-  res.sendFile(path.join(__dirname, 'src/assets/background.jpg'))
-})
-
-app.get('/js/app.js', (req, res) => {
-  res.sendFile(path.join(__dirname, 'src/js/app.js'))
-})
-
-app.get('/admin.html', authorizeUser, requireAdmin, (req, res) => {
-  res.sendFile(path.join(__dirname, 'src/html/admin.html'))
-})
-
-app.get('/index.html', authorizeUser, (req, res) => {
-  res.sendFile(path.join(__dirname, 'src/html/index.html'))
-})
-
-app.get('/dist/login.bundle.js', (req, res) => {
-  res.sendFile(path.join(__dirname, 'src/dist/login.bundle.js'))
-})
-
-app.get('/dist/app.bundle.js', (req, res) => {
-  res.sendFile(path.join(__dirname, 'src/dist/app.bundle.js'))
-})
-
-app.get('/favicon.ico', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public/favicon.ico'))
-})
-
-app.listen(8080, () => {
-  console.log('Server listening on http://localhost:8080')
+app.listen(PORT, () => {
+  console.log(`Server listening on http://localhost:${PORT}`)
 })

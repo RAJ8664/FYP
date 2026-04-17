@@ -4,12 +4,17 @@
 	"description": "Decentralized Voting System using Ethereum Blockchain",
 	"main": "index.js",
 	"scripts": {
-		"hardhat-node": "npx hardhat node",
-		"compile": "npx hardhat compile",
-		"deploy": "npx hardhat run scripts/deploy.js --network localhost",
-		"bundle": "npx browserify src/js/app.js -o src/dist/app.bundle.js",
+		"hardhat-node": "HARDHAT_DISABLE_TELEMETRY_PROMPT=true npx hardhat node",
+		"compile": "HARDHAT_DISABLE_TELEMETRY_PROMPT=true npx hardhat compile",
+		"deploy": "HARDHAT_DISABLE_TELEMETRY_PROMPT=true npx hardhat run scripts/deploy.js --network localhost",
 		"server": "node index.js",
-		"start": "bash start.sh"
+		"chain:prepare": "npm run compile && npm run deploy",
+		"build": "npm run compile && npm run client:build",
+		"start": "npm run start:all",
+		"start:all": "bash start.sh",
+		"client:dev": "npm --prefix client run dev",
+		"client:build": "npm --prefix client run build",
+		"client:preview": "npm --prefix client run preview"
 	},
 	"author": "",
 	"license": "ISC",
