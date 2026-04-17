@@ -74,6 +74,26 @@ LOGIN_FAILED = HTTPException(
     detail="Invalid voter id or password",
 )
 
+def _hash_password(plain: str) -> str:
+    return bcrypt.hashpw(plain.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def _verify_and_maybe_upgrade_password(voter_id: str, plain: str, stored: str) -> bool:
+    """Return True if password matches. Upgrades legacy plaintext rows to bcrypt."""
+    if stored.startswith("$2"):
+        try:
+            return bcrypt.checkpw(plain.encode("utf-8"), stored.encode("utf-8"))
+        except ValueError:
+            return False
+    if stored == plain:
+        new_hash = _hash_password(plain)
+        cursor.execute(
+            "UPDATE voters SET password = %s WHERE voter_id = %s",
+            (new_hash, voter_id),
+        )
+        cnx.commit()
+        return True
+    return False
 
 def _require_database():
     if cnx is None or cursor is None:
