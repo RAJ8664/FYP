@@ -62,6 +62,10 @@ npm --prefix client install --silent
 npm --prefix client run build
 
 echo -e "\n${GREEN}[Step 4] Starting FastAPI authentication service...${NC}"
+# Load environment variables from .env file
+if [[ -f "$PROJECT_DIR/.env" ]]; then
+  export $(cat "$PROJECT_DIR/.env" | grep -v '^#' | xargs)
+fi
 cd "$PROJECT_DIR/Database_API"
 if [[ ! -d "$VENV_DIR" ]]; then
   python3 -m venv "$VENV_DIR"
