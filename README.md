@@ -93,3 +93,4 @@ npm run chain:prepare
 ```
 
 For production deployments, run FastAPI separately, set `AUTH_API_URL` for Express if needed, and serve via `npm run server`.
+# fyp
