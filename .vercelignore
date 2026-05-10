@@ -1,0 +1,9 @@
+node_modules
+artifacts
+cache
+.git
+Database_API
+contracts
+scripts
+build
+*.log
