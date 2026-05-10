@@ -16,9 +16,14 @@ dotenv.load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 
 app = FastAPI()
 
+# CORS origins - add your Vercel URL here
 origins = [
     "http://localhost:8080",
     "http://127.0.0.1:8080",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    # Add your Vercel URL after deployment:
+    # "https://your-app.vercel.app",
 ]
 
 app.add_middleware(

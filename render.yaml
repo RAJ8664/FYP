@@ -1,0 +1,27 @@
+# Render.com Deployment Configuration for FastAPI Backend
+
+services:
+  - type: web
+    name: voting-system-api
+    env: python
+    region: singapore
+    plan: free
+    buildCommand: >
+      cd Database_API &&
+      pip install -r requirements.txt
+    startCommand: >
+      cd Database_API &&
+      uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12
+      - key: MYSQL_USER
+        sync: false
+      - key: MYSQL_PASSWORD
+        sync: false
+      - key: MYSQL_HOST
+        sync: false
+      - key: MYSQL_DB
+        sync: false
+      - key: SECRET_KEY
+        sync: false

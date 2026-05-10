@@ -1,0 +1,20 @@
+{
+  "buildCommand": "npm --prefix client run build",
+  "outputDirectory": "client/dist",
+  "routes": [
+    {
+      "src": "/api-auth/(.*)",
+      "methods": ["GET", "POST", "PUT", "DELETE"],
+      "dest": "https://voting-system-api.onrender.com/$1"
+    },
+    {
+      "src": "/api/(.*)",
+      "methods": ["GET", "POST", "PUT", "DELETE"],
+      "dest": "https://voting-system-api.onrender.com/api/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ]
+}
