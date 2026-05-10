@@ -1,6 +1,7 @@
 {
-  "buildCommand": "npm --prefix client run build",
+  "buildCommand": "npm install && npm --prefix client install && npm --prefix client run build",
   "outputDirectory": "client/dist",
+  "installCommand": "npm install",
   "routes": [
     {
       "src": "/api-auth/(.*)",
