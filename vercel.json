@@ -1,7 +1,7 @@
 {
-  "buildCommand": "bash build-vercel.sh",
+  "buildCommand": "cd client && npm install && npm run build",
   "outputDirectory": "client/dist",
-  "installCommand": "npm --prefix client install",
+  "installCommand": "true",
   "routes": [
     {
       "src": "/api-auth/(.*)",
