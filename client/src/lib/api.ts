@@ -77,6 +77,7 @@ export type Nomination = {
   approvedElectionId: string | null
   photoUrl: string
   proofFileNames: string[]
+  proofDocuments?: Array<{ name: string; mimeType: string; url: string }>
   createdAt: string
   updatedAt: string
 }
@@ -89,13 +90,28 @@ export type ElectionCandidate = {
   post: string
   cgpa: number
   photoUrl: string
+  proofDocuments?: Array<{ name: string; mimeType: string; url: string }>
+}
+
+export type ElectionStanding = {
+  candidateId: string
+  fullName: string
+  department: string
+  post: string
+  photoUrl: string
+  votes: number
+}
+
+export type PositionLeaderboard = {
+  position: string
+  winner: ElectionStanding | null
+  standings: ElectionStanding[]
 }
 
 export type Election = {
   id: string
   title: string
   description: string
-  position: string
   startAt: string
   endAt: string
   createdAt: string
@@ -104,6 +120,9 @@ export type Election = {
   candidateCount: number
   voteCount: number
   candidates: ElectionCandidate[]
+  positions: string[]
+  votedPositions?: Record<string, boolean>
+  positionLeaderboards?: PositionLeaderboard[]
   hasVoted?: boolean
 }
 
@@ -131,6 +150,7 @@ export async function submitNomination(input: {
   department: string
   photoDataUrl: string
   proofFileNames: string[]
+  proofFiles: Array<{ name: string; dataUrl: string }>
 }) {
   return requestJson<{ nomination: Nomination }>('/api/nominations', {
     method: 'POST',
@@ -150,13 +170,18 @@ export async function adminUpdateNomination(nominationId: string, input: { statu
   })
 }
 
+export async function adminDeleteNomination(nominationId: string) {
+  return requestJson<{ deletedNominationId: string }>(`/api/admin/nominations/${encodeURIComponent(nominationId)}`, {
+    method: 'DELETE',
+  })
+}
+
 export async function adminListElections() {
   return requestJson<{ elections: Election[] }>('/api/admin/elections')
 }
 
 export async function adminCreateElection(input: {
   title: string
-  position: string
   description: string
   startAt: string
   endAt: string
@@ -166,7 +191,7 @@ export async function adminCreateElection(input: {
 
 export async function adminUpdateElection(
   electionId: string,
-  input: { title: string; position: string; description: string; startAt: string; endAt: string },
+  input: { title: string; description: string; startAt: string; endAt: string },
 ) {
   return requestJson<{ election: Election }>(`/api/admin/elections/${encodeURIComponent(electionId)}`, {
     method: 'PUT',
@@ -184,10 +209,10 @@ export async function listOngoingElections() {
   return requestJson<{ elections: Election[] }>('/api/elections/ongoing')
 }
 
-export async function submitVote(electionId: string, candidateId: string) {
-  return requestJson<{ vote: { id: string } }>(`/api/elections/${encodeURIComponent(electionId)}/votes`, {
+export async function submitVote(electionId: string, votesByPosition: Record<string, string>) {
+  return requestJson<{ votes: Array<{ id: string }> }>(`/api/elections/${encodeURIComponent(electionId)}/votes`, {
     method: 'POST',
-    body: { candidateId },
+    body: { votesByPosition },
   })
 }
 
@@ -203,11 +228,14 @@ export type ResultWinner = {
 export type ElectionResult = {
   electionId: string
   title: string
-  position: string
   startAt: string
   endAt: string
-  winner: ResultWinner | null
-  rankings: ResultWinner[]
+  positions: string[]
+  winnersByPosition: Array<{
+    position: string
+    winner: ResultWinner | null
+    standings: ResultWinner[]
+  }>
 }
 
 export async function listCompletedResults() {

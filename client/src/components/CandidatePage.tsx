@@ -76,6 +76,12 @@ export function CandidatePage() {
     setBusy(true)
     try {
       const photoDataUrl = await fileToDataUrl(photo)
+      const proofPayload = await Promise.all(
+        proofFiles.map(async (file) => ({
+          name: file.name,
+          dataUrl: await fileToDataUrl(file),
+        })),
+      )
       await submitNomination({
         fullName: fullName.trim(),
         scholarId: scholarId.trim(),
@@ -84,6 +90,7 @@ export function CandidatePage() {
         department: department.trim(),
         photoDataUrl,
         proofFileNames: proofFiles.map((f) => f.name),
+        proofFiles: proofPayload,
       })
       setSubmitted(true)
     } catch (err) {

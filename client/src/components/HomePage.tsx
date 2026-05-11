@@ -108,26 +108,37 @@ export function HomePage() {
                 {results.map((result) => (
                   <li key={result.electionId} className="rounded-lg border border-amber-200 bg-amber-50 p-4">
                     <p className="text-sm font-semibold text-amber-900">{result.title}</p>
-                    <p className="mb-3 text-xs text-amber-800">{result.position}</p>
-                    {result.winner ? (
-                      <div className="flex flex-wrap items-center gap-4 rounded-lg bg-white p-4 shadow-sm">
-                        <img
-                          src={result.winner.photoUrl}
-                          alt={result.winner.fullName}
-                          className="h-20 w-20 rounded-full object-cover ring-2 ring-amber-200"
-                        />
-                        <div className="flex-1">
-                          <p className="text-lg font-bold text-slate-900">{result.winner.fullName}</p>
-                          <p className="text-sm text-slate-700">{result.winner.department}</p>
-                        </div>
-                        <div className="rounded-lg bg-amber-100 px-4 py-2 text-center">
-                          <p className="text-xs font-semibold uppercase text-amber-900">Votes</p>
-                          <p className="text-2xl font-bold text-amber-950">{result.winner.votes}</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-slate-600">No winner data available.</p>
-                    )}
+                    <p className="mb-3 text-xs text-amber-800">
+                      {new Date(result.startAt).toLocaleDateString()} - {new Date(result.endAt).toLocaleDateString()}
+                    </p>
+                    <div className="space-y-3">
+                      {result.winnersByPosition.map((entry) =>
+                        entry.winner ? (
+                          <div key={`${result.electionId}-${entry.position}`} className="rounded-lg bg-white p-4 shadow-sm">
+                            <p className="mb-2 text-sm font-semibold text-slate-800">{entry.position}</p>
+                            <div className="flex flex-wrap items-center gap-4">
+                              <img
+                                src={entry.winner.photoUrl}
+                                alt={entry.winner.fullName}
+                                className="h-16 w-16 rounded-full object-cover ring-2 ring-amber-200"
+                              />
+                              <div className="flex-1">
+                                <p className="text-base font-bold text-slate-900">{entry.winner.fullName}</p>
+                                <p className="text-sm text-slate-700">{entry.winner.department}</p>
+                              </div>
+                              <div className="rounded-lg bg-amber-100 px-3 py-1 text-center">
+                                <p className="text-xs font-semibold uppercase text-amber-900">Votes</p>
+                                <p className="text-xl font-bold text-amber-950">{entry.winner.votes}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <p key={`${result.electionId}-${entry.position}`} className="text-sm text-slate-600">
+                            No winner data available for {entry.position}.
+                          </p>
+                        ),
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>

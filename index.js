@@ -11,10 +11,19 @@ const app = express()
 const COOKIE_NAME = 'auth_token'
 const AUTH_API_URL = process.env.AUTH_API_URL || 'http://127.0.0.1:8000'
 const PORT = Number(process.env.PORT || 8080)
+const ELECTION_POSITIONS = [
+  'President',
+  'Vice President',
+  'Secretary',
+  'Treasurer',
+  'Cultural Secretary',
+  'Sports Secretary',
+]
 
 const dataDir = path.join(__dirname, 'data')
 const uploadsRootDir = path.join(__dirname, 'uploads')
 const nominationUploadDir = path.join(uploadsRootDir, 'nominations')
+const nominationProofUploadDir = path.join(nominationUploadDir, 'proofs')
 const storePath = path.join(dataDir, 'election-workflow.json')
 
 app.use(express.json({ limit: '12mb' }))
@@ -24,6 +33,7 @@ app.use('/uploads', express.static(uploadsRootDir))
 function ensureStorage() {
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true })
   if (!fs.existsSync(nominationUploadDir)) fs.mkdirSync(nominationUploadDir, { recursive: true })
+  if (!fs.existsSync(nominationProofUploadDir)) fs.mkdirSync(nominationProofUploadDir, { recursive: true })
   if (!fs.existsSync(storePath)) {
     fs.writeFileSync(
       storePath,
@@ -86,10 +96,17 @@ function electionPhase(election, now = Date.now()) {
   return 'ongoing'
 }
 
-function normalizePosition(post) {
-  return String(post ?? '')
+function normalizePosition(position) {
+  return String(position ?? '')
     .trim()
     .toLowerCase()
+}
+
+function getElectionPositions(election) {
+  if (Array.isArray(election.positions) && election.positions.length > 0) {
+    return election.positions.map((p) => String(p).trim()).filter(Boolean)
+  }
+  return [...ELECTION_POSITIONS]
 }
 
 function decodeDataUrlImage(dataUrl) {
@@ -112,10 +129,71 @@ function decodeDataUrlImage(dataUrl) {
   }
 }
 
-function decorateElection(store, election) {
+function decodeDataUrlProof(dataUrl) {
+  const m = String(dataUrl ?? '').match(/^data:([a-zA-Z0-9/+.-]+);base64,(.+)$/)
+  if (!m) return null
+  const mime = m[1]
+  const payload = m[2]
+  const extensionMap = {
+    'application/pdf': 'pdf',
+    'application/msword': 'doc',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+    'image/jpeg': 'jpg',
+    'image/jpg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+    'image/gif': 'gif',
+  }
+  const ext = extensionMap[mime]
+  if (!ext) return null
+  return { ext, mimeType: mime, buffer: Buffer.from(payload, 'base64') }
+}
+
+function removeUploadedFileByUrl(uploadUrl) {
+  const relative = String(uploadUrl ?? '')
+  if (!relative.startsWith('/uploads/')) return
+  const relativePath = relative.replace('/uploads/', '')
+  const absolute = path.join(uploadsRootDir, relativePath)
+  if (fs.existsSync(absolute)) fs.unlinkSync(absolute)
+}
+
+function buildPositionLeaderboards(approved, votes, positions) {
+  const tally = new Map()
+  for (const vote of votes) {
+    tally.set(vote.candidateId, (tally.get(vote.candidateId) ?? 0) + 1)
+  }
+
+  return positions.map((position) => {
+    const ranked = approved
+      .filter((candidate) => normalizePosition(candidate.post) === normalizePosition(position))
+      .map((candidate) => ({
+        candidateId: candidate.id,
+        fullName: candidate.fullName,
+        department: candidate.department,
+        post: candidate.post,
+        photoUrl: candidate.photoUrl,
+        votes: tally.get(candidate.id) ?? 0,
+        createdAt: candidate.createdAt,
+      }))
+      .sort((a, b) => {
+        if (b.votes !== a.votes) return b.votes - a.votes
+        return a.createdAt.localeCompare(b.createdAt)
+      })
+
+    return {
+      position,
+      winner: ranked[0] ?? null,
+      standings: ranked,
+    }
+  })
+}
+
+function decorateElection(store, election, options = { includeLeaderboard: false }) {
+  const positions = getElectionPositions(election)
   const approved = store.nominations.filter(
     (n) => n.status === 'approved' && n.approvedElectionId === election.id,
   )
+  const electionVotes = store.votes.filter((v) => v.electionId === election.id)
   const candidates = approved.map((n) => ({
     id: n.id,
     fullName: n.fullName,
@@ -124,13 +202,20 @@ function decorateElection(store, election) {
     post: n.post,
     cgpa: n.cgpa,
     photoUrl: n.photoUrl,
+    proofDocuments: Array.isArray(n.proofDocuments) ? n.proofDocuments : [],
   }))
-  return {
+  const base = {
     ...election,
+    positions,
     phase: electionPhase(election),
     candidates,
     candidateCount: candidates.length,
-    voteCount: store.votes.filter((v) => v.electionId === election.id).length,
+    voteCount: electionVotes.length,
+  }
+  if (!options.includeLeaderboard) return base
+  return {
+    ...base,
+    positionLeaderboards: buildPositionLeaderboards(approved, electionVotes, positions),
   }
 }
 
@@ -172,9 +257,13 @@ app.post('/api/nominations', (req, res) => {
   const cgpa = Number(body.cgpa)
   const photoDataUrl = body.photoDataUrl
   const proofFileNames = Array.isArray(body.proofFileNames) ? body.proofFileNames.map(String) : []
+  const proofFiles = Array.isArray(body.proofFiles) ? body.proofFiles : []
 
   if (!fullName || !scholarId || !post || !department || Number.isNaN(cgpa)) {
     return res.status(400).json({ detail: 'Missing required nomination fields' })
+  }
+  if (!ELECTION_POSITIONS.some((p) => normalizePosition(p) === normalizePosition(post))) {
+    return res.status(400).json({ detail: 'Invalid position selected for nomination' })
   }
   if (cgpa < 0 || cgpa > 10) {
     return res.status(400).json({ detail: 'CGPA must be between 0 and 10' })
@@ -192,6 +281,22 @@ app.post('/api/nominations', (req, res) => {
 
   const store = readStore()
   const now = new Date().toISOString()
+  const proofDocuments = []
+  for (const proof of proofFiles) {
+    const originalName = String(proof?.name ?? '').trim()
+    const decodedProof = decodeDataUrlProof(proof?.dataUrl)
+    if (!originalName || !decodedProof || decodedProof.buffer.length === 0) {
+      return res.status(400).json({ detail: 'Invalid supporting document format.' })
+    }
+    const proofFileName = `${crypto.randomUUID()}.${decodedProof.ext}`
+    fs.writeFileSync(path.join(nominationProofUploadDir, proofFileName), decodedProof.buffer)
+    proofDocuments.push({
+      name: originalName,
+      mimeType: decodedProof.mimeType,
+      url: `/uploads/nominations/proofs/${proofFileName}`,
+    })
+  }
+
   const nomination = {
     id: nominationId,
     fullName,
@@ -203,6 +308,7 @@ app.post('/api/nominations', (req, res) => {
     approvedElectionId: null,
     photoUrl: `/uploads/nominations/${fileName}`,
     proofFileNames,
+    proofDocuments,
     createdAt: now,
     updatedAt: now,
   }
@@ -240,8 +346,12 @@ app.patch('/api/admin/nominations/:nominationId', authRequired(['admin']), (req,
     if (!electionId) return res.status(400).json({ detail: 'electionId is required when approving' })
     const election = store.elections.find((e) => e.id === electionId)
     if (!election) return res.status(404).json({ detail: 'Election not found' })
-    if (normalizePosition(election.position) !== normalizePosition(nomination.post)) {
-      return res.status(400).json({ detail: 'Nomination post does not match election position' })
+    const electionPositions = getElectionPositions(election)
+    const supportsNominationPost = electionPositions.some(
+      (position) => normalizePosition(position) === normalizePosition(nomination.post),
+    )
+    if (!supportsNominationPost) {
+      return res.status(400).json({ detail: 'Nomination position is not part of this election' })
     }
     nomination.approvedElectionId = electionId
   } else {
@@ -252,24 +362,43 @@ app.patch('/api/admin/nominations/:nominationId', authRequired(['admin']), (req,
   return res.json({ nomination })
 })
 
+app.delete('/api/admin/nominations/:nominationId', authRequired(['admin']), (req, res) => {
+  const nominationId = req.params.nominationId
+  const store = readStore()
+  const idx = store.nominations.findIndex((n) => n.id === nominationId)
+  if (idx < 0) return res.status(404).json({ detail: 'Nomination not found' })
+
+  const [nomination] = store.nominations.splice(idx, 1)
+  store.votes = store.votes.filter((v) => v.candidateId !== nominationId)
+
+  removeUploadedFileByUrl(nomination.photoUrl)
+  if (Array.isArray(nomination.proofDocuments)) {
+    for (const doc of nomination.proofDocuments) {
+      removeUploadedFileByUrl(doc.url)
+    }
+  }
+
+  writeStore(store)
+  return res.json({ deletedNominationId: nominationId })
+})
+
 app.get('/api/admin/elections', authRequired(['admin']), (_req, res) => {
   const store = readStore()
   const elections = [...store.elections]
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .map((election) => decorateElection(store, election))
+    .map((election) => decorateElection(store, election, { includeLeaderboard: true }))
   return res.json({ elections })
 })
 
 app.post('/api/admin/elections', authRequired(['admin']), (req, res) => {
   const body = req.body ?? {}
   const title = String(body.title ?? '').trim()
-  const position = String(body.position ?? '').trim()
   const description = String(body.description ?? '').trim()
   const startAt = String(body.startAt ?? '').trim()
   const endAt = String(body.endAt ?? '').trim()
 
-  if (!title || !position || !startAt || !endAt) {
-    return res.status(400).json({ detail: 'title, position, startAt and endAt are required' })
+  if (!title || !startAt || !endAt) {
+    return res.status(400).json({ detail: 'title, startAt and endAt are required' })
   }
   const startMs = new Date(startAt).getTime()
   const endMs = new Date(endAt).getTime()
@@ -286,7 +415,7 @@ app.post('/api/admin/elections', authRequired(['admin']), (req, res) => {
     id: crypto.randomUUID(),
     title,
     description,
-    position,
+    positions: [...ELECTION_POSITIONS],
     startAt: new Date(startMs).toISOString(),
     endAt: new Date(endMs).toISOString(),
     createdAt: now,
@@ -295,20 +424,19 @@ app.post('/api/admin/elections', authRequired(['admin']), (req, res) => {
   }
   store.elections.push(election)
   writeStore(store)
-  return res.status(201).json({ election: decorateElection(store, election) })
+  return res.status(201).json({ election: decorateElection(store, election, { includeLeaderboard: true }) })
 })
 
 app.put('/api/admin/elections/:electionId', authRequired(['admin']), (req, res) => {
   const electionId = req.params.electionId
   const body = req.body ?? {}
   const title = String(body.title ?? '').trim()
-  const position = String(body.position ?? '').trim()
   const description = String(body.description ?? '').trim()
   const startAt = String(body.startAt ?? '').trim()
   const endAt = String(body.endAt ?? '').trim()
 
-  if (!title || !position || !startAt || !endAt) {
-    return res.status(400).json({ detail: 'title, position, startAt and endAt are required' })
+  if (!title || !startAt || !endAt) {
+    return res.status(400).json({ detail: 'title, startAt and endAt are required' })
   }
   const startMs = new Date(startAt).getTime()
   const endMs = new Date(endAt).getTime()
@@ -325,26 +453,14 @@ app.put('/api/admin/elections/:electionId', authRequired(['admin']), (req, res) 
 
   const election = store.elections[idx]
   election.title = title
-  election.position = position
   election.description = description
+  election.positions = getElectionPositions(election)
   election.startAt = new Date(startMs).toISOString()
   election.endAt = new Date(endMs).toISOString()
   election.updatedAt = new Date().toISOString()
 
-  for (const nomination of store.nominations) {
-    if (
-      nomination.status === 'approved' &&
-      nomination.approvedElectionId === election.id &&
-      normalizePosition(nomination.post) !== normalizePosition(election.position)
-    ) {
-      nomination.status = 'pending'
-      nomination.approvedElectionId = null
-      nomination.updatedAt = new Date().toISOString()
-    }
-  }
-
   writeStore(store)
-  return res.json({ election: decorateElection(store, election) })
+  return res.json({ election: decorateElection(store, election, { includeLeaderboard: true }) })
 })
 
 app.delete('/api/admin/elections/:electionId', authRequired(['admin']), (req, res) => {
@@ -372,16 +488,33 @@ app.get('/api/elections/ongoing', authRequired(['user', 'admin']), (req, res) =>
     .filter((election) => electionPhase(election) === 'ongoing')
     .map((election) => {
       const decorated = decorateElection(store, election)
-      const voted = store.votes.some((v) => v.electionId === election.id && v.voterId === voterId)
-      return { ...decorated, hasVoted: voted }
+      const votedPositions = {}
+      const legacyVote = store.votes.some(
+        (v) => v.electionId === election.id && v.voterId === voterId && !v.position,
+      )
+      for (const position of decorated.positions) {
+        const voted = legacyVote
+          ? true
+          : store.votes.some(
+              (v) =>
+                v.electionId === election.id &&
+                v.voterId === voterId &&
+                normalizePosition(v.position) === normalizePosition(position),
+            )
+        votedPositions[position] = voted
+      }
+      const hasVoted = decorated.positions.every((position) => Boolean(votedPositions[position]))
+      return { ...decorated, votedPositions, hasVoted }
     })
   return res.json({ elections: ongoing })
 })
 
 app.post('/api/elections/:electionId/votes', authRequired(['user']), (req, res) => {
   const electionId = req.params.electionId
-  const candidateId = String(req.body?.candidateId ?? '').trim()
-  if (!candidateId) return res.status(400).json({ detail: 'candidateId is required' })
+  const votesByPositionRaw = req.body?.votesByPosition
+  if (!votesByPositionRaw || typeof votesByPositionRaw !== 'object') {
+    return res.status(400).json({ detail: 'votesByPosition is required' })
+  }
 
   const store = readStore()
   const election = store.elections.find((e) => e.id === electionId)
@@ -389,27 +522,51 @@ app.post('/api/elections/:electionId/votes', authRequired(['user']), (req, res) 
   if (electionPhase(election) !== 'ongoing') {
     return res.status(400).json({ detail: 'Voting is not active for this election' })
   }
-
-  const candidate = store.nominations.find(
-    (n) => n.id === candidateId && n.status === 'approved' && n.approvedElectionId === electionId,
+  const positions = getElectionPositions(election)
+  const votesByPosition = Object.fromEntries(
+    Object.entries(votesByPositionRaw).map(([position, candidateId]) => [String(position), String(candidateId)]),
   )
-  if (!candidate) return res.status(404).json({ detail: 'Candidate is not approved for this election' })
+
+  for (const position of positions) {
+    if (!votesByPosition[position]) {
+      return res.status(400).json({ detail: `Missing vote for ${position}` })
+    }
+  }
 
   const voterId = String(req.user.sub ?? '')
   if (!voterId) return res.status(401).json({ detail: 'Invalid voter session' })
+
   const already = store.votes.some((v) => v.electionId === electionId && v.voterId === voterId)
   if (already) return res.status(409).json({ detail: 'You already voted in this election' })
 
-  const vote = {
-    id: crypto.randomUUID(),
-    electionId,
-    candidateId,
-    voterId,
-    createdAt: new Date().toISOString(),
+  const createdVotes = []
+  for (const position of positions) {
+    const candidateId = String(votesByPosition[position] ?? '').trim()
+    const candidate = store.nominations.find(
+      (n) =>
+        n.id === candidateId &&
+        n.status === 'approved' &&
+        n.approvedElectionId === electionId &&
+        normalizePosition(n.post) === normalizePosition(position),
+    )
+    if (!candidate) {
+      return res
+        .status(404)
+        .json({ detail: `Selected candidate for ${position} is not approved in this election` })
+    }
+
+    createdVotes.push({
+      id: crypto.randomUUID(),
+      electionId,
+      candidateId,
+      position,
+      voterId,
+      createdAt: new Date().toISOString(),
+    })
   }
-  store.votes.push(vote)
+  store.votes.push(...createdVotes)
   writeStore(store)
-  return res.status(201).json({ vote })
+  return res.status(201).json({ votes: createdVotes })
 })
 
 app.get('/api/results', (_req, res) => {
@@ -419,38 +576,19 @@ app.get('/api/results', (_req, res) => {
     .sort((a, b) => b.endAt.localeCompare(a.endAt))
 
   const results = completed.map((election) => {
-    const approved = store.nominations.filter(
-      (n) => n.status === 'approved' && n.approvedElectionId === election.id,
-    )
-    const tally = new Map()
-    for (const vote of store.votes) {
-      if (vote.electionId !== election.id) continue
-      tally.set(vote.candidateId, (tally.get(vote.candidateId) ?? 0) + 1)
-    }
-
-    const ranked = approved
-      .map((candidate) => ({
-        candidateId: candidate.id,
-        fullName: candidate.fullName,
-        department: candidate.department,
-        post: candidate.post,
-        photoUrl: candidate.photoUrl,
-        votes: tally.get(candidate.id) ?? 0,
-        createdAt: candidate.createdAt,
-      }))
-      .sort((a, b) => {
-        if (b.votes !== a.votes) return b.votes - a.votes
-        return a.createdAt.localeCompare(b.createdAt)
-      })
-
+    const decorated = decorateElection(store, election, { includeLeaderboard: true })
+    const winnersByPosition = decorated.positionLeaderboards.map((entry) => ({
+      position: entry.position,
+      winner: entry.winner,
+      standings: entry.standings,
+    }))
     return {
       electionId: election.id,
       title: election.title,
-      position: election.position,
       startAt: election.startAt,
       endAt: election.endAt,
-      winner: ranked[0] ?? null,
-      rankings: ranked,
+      positions: decorated.positions,
+      winnersByPosition,
     }
   })
 
