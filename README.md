@@ -63,6 +63,27 @@ This runs:
 
 Open: `http://localhost:8080`
 
+## Implemented Election Workflow
+
+This project now includes a full server-side election workflow on Express:
+
+1. Candidate portal (`/candidate`) submits nominations (name, scholar id, cgpa, post, department, photo, proofs metadata).
+2. Admin portal (`/admin`) can create/list/update/delete elections.
+3. Admin can review nominations and approve/reject each nomination; approved nominations are assigned to a specific election.
+4. Voter portal (`/voter`) lists only ongoing elections and lets each logged-in voter vote once per election.
+5. Results modal on home page reads completed election winners, including the saved candidate photo.
+
+### Where nomination/election data is saved
+
+- Structured workflow data is persisted to:
+  - `data/election-workflow.json`
+- Candidate photos are persisted to:
+  - `uploads/nominations/<generated-file>.(jpg|png|webp|gif)`
+- Photos are served from:
+  - `/uploads/nominations/...`
+
+So nominee submissions are no longer browser-only; admin can now use submitted nominations directly.
+
 ## Development
 
 Run only frontend dev server:

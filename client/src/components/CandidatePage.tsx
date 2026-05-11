@@ -1,6 +1,7 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { CheckCircle, Upload, X } from 'lucide-react'
 import { PageLayout } from './PageLayout'
+import { submitNomination } from '@/lib/api'
 
 const POST_OPTIONS = [
   'President',
@@ -22,12 +23,20 @@ export function CandidatePage() {
   const [proofFiles, setProofFiles] = useState<File[]>([])
   const [submitted, setSubmitted] = useState(false)
   const [dragOver, setDragOver] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const onPhotoChange = (f: File | null) => {
     setPhoto(f)
     if (photoPreview) URL.revokeObjectURL(photoPreview)
     setPhotoPreview(f ? URL.createObjectURL(f) : null)
   }
+
+  useEffect(() => {
+    return () => {
+      if (photoPreview) URL.revokeObjectURL(photoPreview)
+    }
+  }, [photoPreview])
 
   const addProofFiles = useCallback((files: FileList | File[]) => {
     setProofFiles((prev) => {
@@ -48,10 +57,40 @@ export function CandidatePage() {
     setProofFiles((prev) => prev.filter((_, i) => i !== index))
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  function fileToDataUrl(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        if (typeof reader.result === 'string') resolve(reader.result)
+        else reject(new Error('Could not read image'))
+      }
+      reader.onerror = () => reject(new Error('Could not read image'))
+      reader.readAsDataURL(file)
+    })
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!photo) return
-    setSubmitted(true)
+    setError(null)
+    setBusy(true)
+    try {
+      const photoDataUrl = await fileToDataUrl(photo)
+      await submitNomination({
+        fullName: fullName.trim(),
+        scholarId: scholarId.trim(),
+        cgpa: Number(cgpa),
+        post,
+        department: department.trim(),
+        photoDataUrl,
+        proofFileNames: proofFiles.map((f) => f.name),
+      })
+      setSubmitted(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not submit nomination')
+    } finally {
+      setBusy(false)
+    }
   }
 
   if (submitted) {
@@ -61,9 +100,7 @@ export function CandidatePage() {
           <CheckCircle className="mx-auto mb-4 h-14 w-14 text-emerald-600" />
           <h2 className="text-2xl font-bold text-slate-900">Nomination Submitted Successfully!</h2>
           <p className="mt-2 text-slate-600">Your nomination is under review.</p>
-          <p className="mt-4 text-sm text-slate-500">
-            This demo records your files in the browser only; connect a nomination API when your backend exposes one.
-          </p>
+          <p className="mt-4 text-sm text-slate-500">Your nomination is now saved for admin review.</p>
         </div>
       </PageLayout>
     )
@@ -75,6 +112,9 @@ export function CandidatePage() {
         onSubmit={handleSubmit}
         className="mx-auto max-w-xl space-y-6 rounded-lg border border-slate-200 bg-white/95 p-8 shadow backdrop-blur-sm"
       >
+        {error ? (
+          <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+        ) : null}
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="fn">
             Full Name <span className="text-red-600">*</span>
@@ -158,11 +198,17 @@ export function CandidatePage() {
             onChange={(e) => onPhotoChange(e.target.files?.[0] ?? null)}
           />
           {photoPreview ? (
-            <img src={photoPreview} alt="" className="mt-3 h-8 w-8 rounded-md object-cover ring-2 ring-purple-200" />
+            <img
+              src={photoPreview}
+              alt=""
+              className="mt-3 h-8 w-8 rounded-md object-cover ring-2 ring-purple-200"
+            />
           ) : null}
         </div>
         <div>
-          <p className="mb-2 text-sm font-medium text-slate-700">Proof of Contribution (multiple files)</p>
+          <p className="mb-2 text-sm font-medium text-slate-700">
+            Proof of Contribution (multiple files)
+          </p>
           <div
             className={`rounded-lg border-2 border-dashed p-8 text-center transition ${
               dragOver ? 'border-purple-500 bg-purple-50/80' : 'border-slate-300 bg-slate-50/80'
@@ -214,9 +260,10 @@ export function CandidatePage() {
         </div>
         <button
           type="submit"
+          disabled={busy}
           className="w-full rounded-lg bg-purple-600 py-3 font-semibold text-white transition hover:bg-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-400"
         >
-          Submit nomination
+          {busy ? 'Submitting…' : 'Submit nomination'}
         </button>
       </form>
     </PageLayout>

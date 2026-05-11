@@ -2,82 +2,23 @@ import { useCallback, useState } from 'react'
 import { Link } from 'react-router'
 import { Shield, Trophy, UserCircle, Vote, X } from 'lucide-react'
 import { PageLayout } from './PageLayout'
-import { fetchCandidates, fetchVotingDates, type OnChainCandidate } from '@/lib/votingContract'
-
-const MOCK_END = new Date('2026-04-28T17:00:00')
-
-const FALLBACK_WINNERS = [
-  {
-    position: 'President',
-    name: 'Sarah Johnson',
-    department: 'Engineering',
-    votes: 1247,
-    photo: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=128&h=128&fit=crop',
-  },
-  {
-    position: 'Vice President',
-    name: 'Michael Chen',
-    department: 'Business',
-    votes: 1134,
-    photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=128&h=128&fit=crop',
-  },
-  {
-    position: 'Secretary',
-    name: 'Emily Davis',
-    department: 'Arts',
-    votes: 1089,
-    photo: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=128&h=128&fit=crop',
-  },
-  {
-    position: 'Treasurer',
-    name: 'James Wilson',
-    department: 'Engineering',
-    votes: 1021,
-    photo: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=128&h=128&fit=crop',
-  },
-]
-
-async function electionIsOver(): Promise<boolean> {
-  try {
-    const dates = await fetchVotingDates()
-    if (dates) return Date.now() > dates.end.getTime()
-  } catch {
-    /* use mock */
-  }
-  return Date.now() > MOCK_END.getTime()
-}
-
-function buildResultsRows(candidates: OnChainCandidate[] | null) {
-  if (!candidates || candidates.length === 0) return FALLBACK_WINNERS
-  const sorted = [...candidates].sort((a, b) => b.voteCount - a.voteCount).slice(0, 4)
-  const photos = FALLBACK_WINNERS.map((w) => w.photo)
-  return sorted.map((c, i) => ({
-    position: c.party || `Position ${i + 1}`,
-    name: c.name,
-    department: '—',
-    votes: c.voteCount,
-    photo: photos[i] ?? photos[0],
-  }))
-}
+import { listCompletedResults, type ElectionResult } from '@/lib/api'
 
 export function HomePage() {
   const [resultsOpen, setResultsOpen] = useState(false)
-  const [resultRows, setResultRows] = useState(FALLBACK_WINNERS)
   const [loadingResults, setLoadingResults] = useState(false)
+  const [results, setResults] = useState<ElectionResult[]>([])
+  const [error, setError] = useState<string | null>(null)
 
   const openResults = useCallback(async () => {
-    const over = await electionIsOver()
-    if (!over) {
-      alert('Election not over yet')
-      return
-    }
-    setLoadingResults(true)
     setResultsOpen(true)
+    setLoadingResults(true)
+    setError(null)
     try {
-      const list = await fetchCandidates()
-      setResultRows(buildResultsRows(list))
-    } catch {
-      setResultRows(FALLBACK_WINNERS)
+      const response = await listCompletedResults()
+      setResults(response.results)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not load results')
     } finally {
       setLoadingResults(false)
     }
@@ -97,7 +38,7 @@ export function HomePage() {
               </span>
             </div>
             <h2 className="text-center text-xl font-bold text-slate-900">Admin</h2>
-            <p className="mt-2 text-center text-sm text-slate-600">Manage nominations, schedule, and candidates</p>
+            <p className="mt-2 text-center text-sm text-slate-600">Create and manage elections and nominee approvals</p>
           </Link>
           <Link
             to="/voter"
@@ -109,7 +50,7 @@ export function HomePage() {
               </span>
             </div>
             <h2 className="text-center text-xl font-bold text-slate-900">Voter</h2>
-            <p className="mt-2 text-center text-sm text-slate-600">Cast your ballot during the live election window</p>
+            <p className="mt-2 text-center text-sm text-slate-600">Vote in currently ongoing elections</p>
           </Link>
           <Link
             to="/candidate"
@@ -121,7 +62,7 @@ export function HomePage() {
               </span>
             </div>
             <h2 className="text-center text-xl font-bold text-slate-900">Candidate</h2>
-            <p className="mt-2 text-center text-sm text-slate-600">Submit your nomination and supporting documents</p>
+            <p className="mt-2 text-center text-sm text-slate-600">Submit nomination with profile photo</p>
           </Link>
         </div>
         <button
@@ -155,38 +96,42 @@ export function HomePage() {
                 <X className="h-6 w-6" />
               </button>
             </div>
-            {loadingResults ? (
-              <p className="text-center text-slate-600">Loading results…</p>
-            ) : (
+
+            {loadingResults ? <p className="text-center text-slate-600">Loading results…</p> : null}
+            {error ? <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
+            {!loadingResults && !error && results.length === 0 ? (
+              <p className="text-center text-slate-600">No completed election results yet.</p>
+            ) : null}
+
+            {!loadingResults && !error && results.length > 0 ? (
               <ul className="space-y-4">
-                {resultRows.map((row) => (
-                  <li
-                    key={row.position + row.name}
-                    className="flex flex-wrap items-center gap-4 rounded-lg bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-200 p-4 shadow-md md:flex-nowrap"
-                  >
-                    <div className="relative shrink-0">
-                      <img
-                        src={row.photo}
-                        alt=""
-                        className="h-24 w-24 rounded-full border-4 border-white object-cover shadow-md"
-                      />
-                      <span className="absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full bg-amber-600 text-white shadow">
-                        <Trophy className="h-5 w-5" />
-                      </span>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-lg font-bold text-amber-950">{row.name}</p>
-                      <p className="text-sm font-medium text-amber-900/90">{row.position}</p>
-                      <p className="text-sm text-amber-950/80">{row.department}</p>
-                    </div>
-                    <div className="rounded-lg bg-white/90 px-4 py-2 text-center shadow">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-amber-900/70">Votes</p>
-                      <p className="text-2xl font-bold text-amber-950">{row.votes}</p>
-                    </div>
+                {results.map((result) => (
+                  <li key={result.electionId} className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                    <p className="text-sm font-semibold text-amber-900">{result.title}</p>
+                    <p className="mb-3 text-xs text-amber-800">{result.position}</p>
+                    {result.winner ? (
+                      <div className="flex flex-wrap items-center gap-4 rounded-lg bg-white p-4 shadow-sm">
+                        <img
+                          src={result.winner.photoUrl}
+                          alt={result.winner.fullName}
+                          className="h-20 w-20 rounded-full object-cover ring-2 ring-amber-200"
+                        />
+                        <div className="flex-1">
+                          <p className="text-lg font-bold text-slate-900">{result.winner.fullName}</p>
+                          <p className="text-sm text-slate-700">{result.winner.department}</p>
+                        </div>
+                        <div className="rounded-lg bg-amber-100 px-4 py-2 text-center">
+                          <p className="text-xs font-semibold uppercase text-amber-900">Votes</p>
+                          <p className="text-2xl font-bold text-amber-950">{result.winner.votes}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-600">No winner data available.</p>
+                    )}
                   </li>
                 ))}
               </ul>
-            )}
+            ) : null}
           </div>
         </div>
       ) : null}
