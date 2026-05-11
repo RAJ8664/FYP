@@ -493,6 +493,13 @@ app.get('/api/elections/ongoing', authRequired(['user', 'admin']), (req, res) =>
         (v) => v.electionId === election.id && v.voterId === voterId && !v.position,
       )
       for (const position of decorated.positions) {
+        const hasCandidates = decorated.candidates.some(
+          (candidate) => normalizePosition(candidate.post) === normalizePosition(position),
+        )
+        if (!hasCandidates) {
+          votedPositions[position] = true
+          continue
+        }
         const voted = legacyVote
           ? true
           : store.votes.some(
@@ -500,10 +507,13 @@ app.get('/api/elections/ongoing', authRequired(['user', 'admin']), (req, res) =>
                 v.electionId === election.id &&
                 v.voterId === voterId &&
                 normalizePosition(v.position) === normalizePosition(position),
-            )
+              )
         votedPositions[position] = voted
       }
-      const hasVoted = decorated.positions.every((position) => Boolean(votedPositions[position]))
+      const requiredPositions = decorated.positions.filter((position) =>
+        decorated.candidates.some((candidate) => normalizePosition(candidate.post) === normalizePosition(position)),
+      )
+      const hasVoted = requiredPositions.every((position) => Boolean(votedPositions[position]))
       return { ...decorated, votedPositions, hasVoted }
     })
   return res.json({ elections: ongoing })
@@ -527,12 +537,6 @@ app.post('/api/elections/:electionId/votes', authRequired(['user']), (req, res) 
     Object.entries(votesByPositionRaw).map(([position, candidateId]) => [String(position), String(candidateId)]),
   )
 
-  for (const position of positions) {
-    if (!votesByPosition[position]) {
-      return res.status(400).json({ detail: `Missing vote for ${position}` })
-    }
-  }
-
   const voterId = String(req.user.sub ?? '')
   if (!voterId) return res.status(401).json({ detail: 'Invalid voter session' })
 
@@ -541,14 +545,21 @@ app.post('/api/elections/:electionId/votes', authRequired(['user']), (req, res) 
 
   const createdVotes = []
   for (const position of positions) {
-    const candidateId = String(votesByPosition[position] ?? '').trim()
-    const candidate = store.nominations.find(
+    const approvedForPosition = store.nominations.filter(
       (n) =>
-        n.id === candidateId &&
         n.status === 'approved' &&
         n.approvedElectionId === electionId &&
         normalizePosition(n.post) === normalizePosition(position),
     )
+    if (approvedForPosition.length === 0) {
+      continue
+    }
+
+    const candidateId = String(votesByPosition[position] ?? '').trim()
+    if (!candidateId) {
+      return res.status(400).json({ detail: `Missing vote for ${position}` })
+    }
+    const candidate = approvedForPosition.find((n) => n.id === candidateId)
     if (!candidate) {
       return res
         .status(404)

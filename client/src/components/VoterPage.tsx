@@ -24,14 +24,24 @@ export function VoterPage() {
 
   useEffect(() => {
     if (!authed) return
-    void refresh().catch((err) => setError(err instanceof Error ? err.message : 'Could not load elections'))
+    void refresh().catch((err) =>
+      setError(err instanceof Error ? err.message : 'Could not load elections'),
+    )
   }, [authed, refresh])
 
   async function castVote(election: Election) {
     const electionSelections = selections[election.id] ?? {}
-    const missing = election.positions.filter((position) => !electionSelections[position])
+    const missing = election.positions.filter((position) => {
+      const hasCandidatesForPosition = election.candidates.some(
+        (candidate) => candidate.post.toLowerCase() === position.toLowerCase(),
+      )
+      if (!hasCandidatesForPosition) return false
+      return !electionSelections[position]
+    })
     if (missing.length > 0) {
-      setError(`Please choose one candidate for every position before submitting: ${missing.join(', ')}`)
+      setError(
+        `Please choose one candidate for every position before submitting: ${missing.join(', ')}`,
+      )
       return
     }
 
@@ -61,25 +71,35 @@ export function VoterPage() {
     <PageLayout showBack subtitle="Voter Portal">
       <div className="mx-auto max-w-4xl space-y-6">
         {error ? (
-          <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
+          <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </p>
         ) : null}
         {message ? (
-          <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</p>
+          <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            {message}
+          </p>
         ) : null}
 
         {elections.length === 0 ? (
           <div className="rounded-lg border border-slate-200 bg-white/95 p-8 text-center shadow backdrop-blur-sm">
             <h2 className="text-lg font-semibold text-slate-900">No ongoing elections</h2>
-            <p className="mt-2 text-sm text-slate-600">Voting opens when an administrator starts an election window.</p>
+            <p className="mt-2 text-sm text-slate-600">
+              Voting opens when an administrator starts an election window.
+            </p>
           </div>
         ) : null}
 
         {elections.map((election) => (
-          <section key={election.id} className="rounded-lg border border-slate-200 bg-white/95 p-6 shadow backdrop-blur-sm">
+          <section
+            key={election.id}
+            className="rounded-lg border border-slate-200 bg-white/95 p-6 shadow backdrop-blur-sm"
+          >
             <div className="mb-4">
               <h2 className="text-lg font-semibold text-slate-900">{election.title}</h2>
               <p className="text-xs text-slate-600">
-                {new Date(election.startAt).toLocaleString()} - {new Date(election.endAt).toLocaleString()}
+                {new Date(election.startAt).toLocaleString()} -{' '}
+                {new Date(election.endAt).toLocaleString()}
               </p>
             </div>
 
@@ -96,10 +116,15 @@ export function VoterPage() {
                   )
                   const picked = selections[election.id]?.[position]
                   return (
-                    <div key={`${election.id}-${position}`} className="mb-4 rounded-lg border border-slate-200 bg-white p-4">
+                    <div
+                      key={`${election.id}-${position}`}
+                      className="mb-4 rounded-lg border border-slate-200 bg-white p-4"
+                    >
                       <h3 className="mb-2 text-sm font-semibold text-slate-900">{position}</h3>
                       {candidates.length === 0 ? (
-                        <p className="text-sm text-amber-700">No approved candidates for this position yet.</p>
+                        <p className="text-sm text-amber-700">
+                          No approved candidates for this position yet.
+                        </p>
                       ) : (
                         <ul className="space-y-2">
                           {candidates.map((candidate) => (
@@ -136,7 +161,8 @@ export function VoterPage() {
                                   <p className="text-sm text-slate-600">
                                     {candidate.department} | Contesting for: {candidate.post}
                                   </p>
-                                  {candidate.proofDocuments && candidate.proofDocuments.length > 0 ? (
+                                  {candidate.proofDocuments &&
+                                  candidate.proofDocuments.length > 0 ? (
                                     <div className="mt-1 flex flex-wrap gap-2">
                                       {candidate.proofDocuments.map((doc) => (
                                         <a
@@ -163,7 +189,16 @@ export function VoterPage() {
                 })}
                 <button
                   type="button"
-                  disabled={busyElectionId === election.id || election.positions.some((p) => !(selections[election.id]?.[p]))}
+                  disabled={
+                    busyElectionId === election.id ||
+                    election.positions.some((position) => {
+                      const hasCandidatesForPosition = election.candidates.some(
+                        (candidate) => candidate.post.toLowerCase() === position.toLowerCase(),
+                      )
+                      if (!hasCandidatesForPosition) return false
+                      return !(selections[election.id]?.[position])
+                    })
+                  }
                   onClick={() => void castVote(election)}
                   className="mt-2 w-full rounded-lg bg-emerald-600 py-3 font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
                 >
