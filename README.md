@@ -72,6 +72,7 @@ This project now includes a full server-side election workflow on Express:
 3. Admin can review nominations and approve/reject each nomination by position; approved nominations are assigned to a specific election.
 4. Voter portal (`/voter`) lists only ongoing elections and lets each logged-in voter cast one vote per position in that election.
 5. Results modal on home page reads completed election winners for every position, including the saved candidate photo.
+6. If multiple candidates tie at the highest vote count for a position, the system resolves the winner using **Drawing Lots** (random tie-breaker) and stores the draw record for consistent, auditable results.
 
 ### Where nomination/election data is saved
 

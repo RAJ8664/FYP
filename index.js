@@ -37,7 +37,7 @@ function ensureStorage() {
   if (!fs.existsSync(storePath)) {
     fs.writeFileSync(
       storePath,
-      JSON.stringify({ elections: [], nominations: [], votes: [] }, null, 2),
+      JSON.stringify({ elections: [], nominations: [], votes: [], lotDraws: [] }, null, 2),
       'utf8',
     )
   }
@@ -51,6 +51,7 @@ function readStore() {
     elections: Array.isArray(parsed.elections) ? parsed.elections : [],
     nominations: Array.isArray(parsed.nominations) ? parsed.nominations : [],
     votes: Array.isArray(parsed.votes) ? parsed.votes : [],
+    lotDraws: Array.isArray(parsed.lotDraws) ? parsed.lotDraws : [],
   }
 }
 
@@ -184,8 +185,86 @@ function buildPositionLeaderboards(approved, votes, positions) {
       position,
       winner: ranked[0] ?? null,
       standings: ranked,
+      tieBreak: null,
     }
   })
+}
+
+function sameStringArray(a, b) {
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) {
+    if (String(a[i]) !== String(b[i])) return false
+  }
+  return true
+}
+
+function applyDrawingLotsToLeaderboards(store, election, positionLeaderboards) {
+  if (electionPhase(election) !== 'completed') {
+    return { positionLeaderboards, changed: false }
+  }
+
+  const lotDraws = Array.isArray(store.lotDraws) ? [...store.lotDraws] : []
+  let changed = false
+
+  const nextLeaderboards = positionLeaderboards.map((entry) => {
+    if (!entry.winner || entry.standings.length === 0) return entry
+
+    const topVotes = entry.standings[0].votes
+    const tied = entry.standings.filter((candidate) => candidate.votes === topVotes)
+    if (tied.length <= 1) return entry
+
+    const positionKey = normalizePosition(entry.position)
+    const tiedCandidateIds = tied.map((candidate) => candidate.candidateId).sort()
+    const drawIndex = lotDraws.findIndex((draw) => {
+      if (draw.electionId !== election.id || normalizePosition(draw.positionKey) !== positionKey) return false
+      if (Number(draw.topVotes) !== Number(topVotes)) return false
+      return sameStringArray(draw.tiedCandidateIds, tiedCandidateIds)
+    })
+
+    let draw = drawIndex >= 0 ? lotDraws[drawIndex] : null
+    if (!draw || !tiedCandidateIds.includes(String(draw.winnerCandidateId))) {
+      const winner = tied[crypto.randomInt(0, tied.length)]
+      draw = {
+        id: crypto.randomUUID(),
+        electionId: election.id,
+        position: entry.position,
+        positionKey,
+        topVotes,
+        tiedCandidateIds,
+        winnerCandidateId: winner.candidateId,
+        method: 'drawing_lots',
+        drawnAt: new Date().toISOString(),
+      }
+      for (let i = lotDraws.length - 1; i >= 0; i--) {
+        if (lotDraws[i].electionId === election.id && normalizePosition(lotDraws[i].positionKey) === positionKey) {
+          lotDraws.splice(i, 1)
+        }
+      }
+      lotDraws.push(draw)
+      changed = true
+    }
+
+    const winnerFromDraw = entry.standings.find(
+      (candidate) => candidate.candidateId === String(draw.winnerCandidateId),
+    )
+    return {
+      ...entry,
+      winner: winnerFromDraw ?? entry.winner,
+      tieBreak: {
+        method: 'drawing_lots',
+        wasTie: true,
+        tiedCandidateCount: tied.length,
+        topVotes,
+        drawnAt: draw.drawnAt,
+        drawId: draw.id,
+      },
+    }
+  })
+
+  if (changed) {
+    store.lotDraws = lotDraws
+  }
+  return { positionLeaderboards: nextLeaderboards, changed }
 }
 
 function decorateElection(store, election, options = { includeLeaderboard: false }) {
@@ -213,9 +292,12 @@ function decorateElection(store, election, options = { includeLeaderboard: false
     voteCount: electionVotes.length,
   }
   if (!options.includeLeaderboard) return base
+  const leaderboards = buildPositionLeaderboards(approved, electionVotes, positions)
+  const withLots = applyDrawingLotsToLeaderboards(store, election, leaderboards)
+  if (withLots.changed) writeStore(store)
   return {
     ...base,
-    positionLeaderboards: buildPositionLeaderboards(approved, electionVotes, positions),
+    positionLeaderboards: withLots.positionLeaderboards,
   }
 }
 
@@ -592,6 +674,7 @@ app.get('/api/results', (_req, res) => {
       position: entry.position,
       winner: entry.winner,
       standings: entry.standings,
+      tieBreak: entry.tieBreak,
     }))
     return {
       electionId: election.id,

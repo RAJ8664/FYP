@@ -116,6 +116,12 @@ export function HomePage() {
                         entry.winner ? (
                           <div key={`${result.electionId}-${entry.position}`} className="rounded-lg bg-white p-4 shadow-sm">
                             <p className="mb-2 text-sm font-semibold text-slate-800">{entry.position}</p>
+                            {entry.tieBreak?.method === 'drawing_lots' ? (
+                              <p className="mb-2 inline-block rounded-md bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700">
+                                Winner selected by Drawing Lots ({entry.tieBreak.tiedCandidateCount} tied at {entry.tieBreak.topVotes}{' '}
+                                votes)
+                              </p>
+                            ) : null}
                             <div className="flex flex-wrap items-center gap-4">
                               <img
                                 src={entry.winner.photoUrl}

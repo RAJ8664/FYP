@@ -102,10 +102,20 @@ export type ElectionStanding = {
   votes: number
 }
 
+export type ElectionTieBreak = {
+  method: 'drawing_lots'
+  wasTie: boolean
+  tiedCandidateCount: number
+  topVotes: number
+  drawnAt: string
+  drawId: string
+}
+
 export type PositionLeaderboard = {
   position: string
   winner: ElectionStanding | null
   standings: ElectionStanding[]
+  tieBreak: ElectionTieBreak | null
 }
 
 export type Election = {
@@ -235,6 +245,7 @@ export type ElectionResult = {
     position: string
     winner: ResultWinner | null
     standings: ResultWinner[]
+    tieBreak: ElectionTieBreak | null
   }>
 }
 
