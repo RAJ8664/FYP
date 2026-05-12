@@ -50,11 +50,21 @@ export async function persistLoginSession(voterId: string, token: string, role: 
   setSession(token, role, voterId)
 }
 
-export async function registerRequest(voterId: string, password: string, email: string) {
+export async function requestRegistrationOtp(voterId: string, password: string, email: string) {
   const res = await fetch('/api-auth/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ voter_id: voterId, password, email }),
+  })
+  if (!res.ok) throw new ApiError(res.status, await readDetail(res))
+  return (await res.json()) as { message: string }
+}
+
+export async function verifyRegistrationOtp(voterId: string, email: string, otp: string) {
+  const res = await fetch('/api-auth/register/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ voter_id: voterId, email, otp }),
   })
   if (!res.ok) throw new ApiError(res.status, await readDetail(res))
   return (await res.json()) as { message: string }

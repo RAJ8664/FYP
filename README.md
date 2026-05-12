@@ -39,7 +39,18 @@ MYSQL_USER=...
 MYSQL_PASSWORD=...
 MYSQL_HOST=...
 MYSQL_DB=...
+
+SMTP_HOST=...
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASSWORD=...
+SMTP_FROM=your-email@gmail.com
+SMTP_USE_TLS=true
+SMTP_USE_SSL=false
+OTP_TTL_SECONDS=600
 ```
+
+For Gmail, use an app password and set `SMTP_USER` to the full Gmail address (not only the username).
 
 ## Install
 
@@ -73,6 +84,7 @@ This project now includes a full server-side election workflow on Express:
 4. Voter portal (`/voter`) lists only ongoing elections and lets each logged-in voter cast one vote per position in that election.
 5. Results modal on home page reads completed election winners for every position, including the saved candidate photo.
 6. If multiple candidates tie at the highest vote count for a position, the system resolves the winner using **Drawing Lots** (random tie-breaker) and stores the draw record for consistent, auditable results.
+7. Voter self-registration requires OTP verification on institute email in NIT Silchar format (`*@<department>.nits.ac.in`), with one-to-one mapping between voter ID and email.
 
 ### Where nomination/election data is saved
 
