@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { CheckCircle, Upload, X } from 'lucide-react'
 import { PageLayout } from './PageLayout'
+import { LoginCard } from './LoginCard'
 import { submitNomination } from '@/lib/api'
+import { getSession } from '@/lib/session'
 
 const POST_OPTIONS = [
   'President',
@@ -13,8 +15,11 @@ const POST_OPTIONS = [
 ] as const
 
 export function CandidatePage() {
+  const session = getSession()
+  const authed = session?.role === 'user' && !!session.voterId
+
   const [fullName, setFullName] = useState('')
-  const [scholarId, setScholarId] = useState('')
+  const [scholarId, setScholarId] = useState(session?.voterId ?? '')
   const [cgpa, setCgpa] = useState('')
   const [post, setPost] = useState<(typeof POST_OPTIONS)[number]>('President')
   const [department, setDepartment] = useState('')
@@ -71,10 +76,16 @@ export function CandidatePage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!authed || !session) {
+      setError('Please login as a registered voter first.')
+      return
+    }
     if (!photo) return
     setError(null)
     setBusy(true)
     try {
+      const normalizedScholarId = session.voterId.trim()
+      setScholarId(normalizedScholarId)
       const photoDataUrl = await fileToDataUrl(photo)
       const proofPayload = await Promise.all(
         proofFiles.map(async (file) => ({
@@ -84,7 +95,7 @@ export function CandidatePage() {
       )
       await submitNomination({
         fullName: fullName.trim(),
-        scholarId: scholarId.trim(),
+        scholarId: normalizedScholarId,
         cgpa: Number(cgpa),
         post,
         department: department.trim(),
@@ -109,6 +120,14 @@ export function CandidatePage() {
           <p className="mt-2 text-slate-600">Your nomination is under review.</p>
           <p className="mt-4 text-sm text-slate-500">Your nomination is now saved for admin review.</p>
         </div>
+      </PageLayout>
+    )
+  }
+
+  if (!authed) {
+    return (
+      <PageLayout showBack subtitle="Candidate Portal">
+        <LoginCard expectedRole="user" title="Candidate login" />
       </PageLayout>
     )
   }
@@ -141,10 +160,13 @@ export function CandidatePage() {
           <input
             id="sid"
             required
+            readOnly
             className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
             value={scholarId}
-            onChange={(e) => setScholarId(e.target.value)}
           />
+          <p className="mt-1 text-xs text-slate-500">
+            Scholar ID is locked to your logged-in voter account.
+          </p>
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="cgpa">

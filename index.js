@@ -330,7 +330,7 @@ app.post('/api/logout', (req, res) => {
   res.json({ ok: true })
 })
 
-app.post('/api/nominations', (req, res) => {
+app.post('/api/nominations', authRequired(['user']), (req, res) => {
   const body = req.body ?? {}
   const fullName = String(body.fullName ?? '').trim()
   const scholarId = String(body.scholarId ?? '').trim()
@@ -343,6 +343,15 @@ app.post('/api/nominations', (req, res) => {
 
   if (!fullName || !scholarId || !post || !department || Number.isNaN(cgpa)) {
     return res.status(400).json({ detail: 'Missing required nomination fields' })
+  }
+  const authenticatedVoterId = String(req.user?.sub ?? '').trim()
+  if (!authenticatedVoterId) {
+    return res.status(401).json({ detail: 'Authentication required' })
+  }
+  if (scholarId !== authenticatedVoterId) {
+    return res.status(403).json({
+      detail: 'You can only submit nomination using your own registered voter ID.',
+    })
   }
   if (!ELECTION_POSITIONS.some((p) => normalizePosition(p) === normalizePosition(post))) {
     return res.status(400).json({ detail: 'Invalid position selected for nomination' })
